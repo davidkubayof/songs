@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { findNextTrack, findPreviousTrack } from '@/lib/playerQueue';
 import type { Track } from '@/types/Music';
 import type { RoomPlayback } from '@/types/Room';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
@@ -20,20 +21,6 @@ interface PlayerState {
   skipOnError: () => void;
   applyRoomPlayback: (playback: RoomPlayback) => void;
   clearRemoteFlag: () => void;
-}
-
-function findNextTrack(current: Track, playlist: Track[]): Track | null {
-  if (playlist.length === 0) return null;
-  const index = playlist.findIndex((t) => t.id === current.id);
-  if (index < 0) return playlist[0] ?? null;
-  return playlist[index + 1] ?? playlist[0] ?? null;
-}
-
-function findPreviousTrack(current: Track, playlist: Track[]): Track | null {
-  if (playlist.length === 0) return null;
-  const index = playlist.findIndex((t) => t.id === current.id);
-  if (index <= 0) return playlist[playlist.length - 1] ?? null;
-  return playlist[index - 1] ?? null;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({

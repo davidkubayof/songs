@@ -6,14 +6,15 @@ import { Search } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import type { Track } from '@/types/Music';
 
-import { TrackListItem } from '@/components/search/TrackListItem';
+import { TrackGrid } from '@/components/search/TrackGrid';
 import { TrackListSkeleton } from '@/components/search/TrackListSkeleton';
+import type { ViewMode } from '@/components/search/ViewToggle';
 
 interface SearchResultsProps {
   tracks: Track[];
   loading: boolean;
-  error: string | null;
   hasQuery: boolean;
+  mode: ViewMode;
   onPlay: (track: Track) => void;
   onAdd: (track: Track) => void;
 }
@@ -21,8 +22,8 @@ interface SearchResultsProps {
 export function SearchResults({
   tracks,
   loading,
-  error,
   hasQuery,
+  mode,
   onPlay,
   onAdd,
 }: SearchResultsProps) {
@@ -30,41 +31,25 @@ export function SearchResults({
     return (
       <EmptyState
         icon={Search}
-        title="Search music"
-        description="Find songs, artists, and albums. Results appear as you type."
+        title="Discover music"
+        description="Search millions of tracks. Type an artist, song, or mood to begin."
+        variant="blue"
       />
     );
   }
 
   if (loading) return <TrackListSkeleton />;
 
-  if (error) {
-    return (
-      <EmptyState
-        icon={Search}
-        title="Search failed"
-        description={error}
-      />
-    );
-  }
-
   if (tracks.length === 0) {
     return (
       <EmptyState
         icon={Search}
-        title="No results"
-        description="Try a different keyword or check your connection."
+        title="No matches yet"
+        description="Try another search — we're still looking for the perfect track."
+        variant="violet"
       />
     );
   }
 
-  return (
-    <ul className="flex flex-col">
-      {tracks.map((track) => (
-        <li key={track.id}>
-          <TrackListItem track={track} onPlay={onPlay} onAdd={onAdd} />
-        </li>
-      ))}
-    </ul>
-  );
+  return <TrackGrid tracks={tracks} mode={mode} onPlay={onPlay} onAdd={onAdd} />;
 }

@@ -2,9 +2,24 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { LogOut, Settings, Shield, User } from 'lucide-react';
+import { LogOut, Settings, User } from 'lucide-react';
 
 import { useAuthStore } from '@/store/useAuthStore';
+
+function AdminLink({ onClose }: { onClose: () => void }) {
+  const role = useAuthStore((s) => s.role);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  if (isLoading || role !== 'Admin') return null;
+  return (
+    <Link
+      href="/admin"
+      className="block rounded-xl px-4 py-2.5 text-sm hover:bg-white/10"
+      onClick={onClose}
+    >
+      Admin Dashboard
+    </Link>
+  );
+}
 
 export function ProfileMenu() {
   const role = useAuthStore((s) => s.role);
@@ -21,6 +36,8 @@ export function ProfileMenu() {
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
+  const close = () => setOpen(false);
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -36,8 +53,8 @@ export function ProfileMenu() {
           {role === 'Guest' ? (
             <Link
               href="/auth/login"
-              className="block rounded-xl px-4 py-3 text-sm hover:bg-white/10"
-              onClick={() => setOpen(false)}
+              className="block rounded-xl px-4 py-3 text-sm font-medium hover:bg-white/10"
+              onClick={close}
             >
               Sign In
             </Link>
@@ -47,24 +64,16 @@ export function ProfileMenu() {
               <Link
                 href="/profile"
                 className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm hover:bg-white/10"
-                onClick={() => setOpen(false)}
+                onClick={close}
               >
                 <Settings className="h-4 w-4" /> Profile
               </Link>
-              {role === 'Admin' && (
-                <Link
-                  href="/admin"
-                  className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm hover:bg-white/10"
-                  onClick={() => setOpen(false)}
-                >
-                  <Shield className="h-4 w-4" /> Admin
-                </Link>
-              )}
+              <AdminLink onClose={close} />
               <button
                 type="button"
                 onClick={() => {
                   signOut();
-                  setOpen(false);
+                  close();
                 }}
                 className="flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-sm text-red-400 hover:bg-white/10"
               >

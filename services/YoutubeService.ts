@@ -6,9 +6,22 @@ import { SEARCH_DEFAULT_LIMIT } from '@/constants/music';
 import { mapSearchResults, mapToTrack } from '@/services/mappers';
 import type { MusicService } from '@/services/MusicService';
 import { withRetry } from '@/services/retry';
+import { searchYoutubeApi } from '@/services/youtubeApiSearch';
 import type { SearchOptions, Track } from '@/types/Music';
 import { MusicServiceError } from '@/types/Music';
 import type { YoutubeVideoItem } from '@/types/YoutubeRaw';
+
+function ytsrOptions() {
+  const key = process.env.YOUTUBE_API_KEY?.trim();
+  return {
+    limit: SEARCH_DEFAULT_LIMIT,
+    safeSearch: true,
+    type: 'video' as const,
+    requestOptions: key
+      ? { headers: { 'X-Origin': 'https://www.youtube.com' } }
+      : undefined,
+  };
+}
 
 function toVideoItems(items: ytsr.Video[]): YoutubeVideoItem[] {
   return items as YoutubeVideoItem[];
@@ -25,15 +38,14 @@ export class YoutubeService implements MusicService {
     if (!trimmed) return [];
 
     try {
-      const result = await withRetry(() =>
-        ytsr(trimmed, {
-          limit: options?.limit ?? SEARCH_DEFAULT_LIMIT,
-          safeSearch: options?.safeSearch ?? true,
-          type: 'video',
-        }),
-      );
-      const tracks = mapSearchResults(toVideoItems(result.items ?? []));
-      return tracks;
+      const apiItems = await searchYoutubeApi(trimmed);
+      if (apiItems.length > 0) return mapSearchResults(apiItems);
+
+      const result = await withRetry(() => ytsr(trimmed, {
+        ...ytsrOptions(),
+        limit: options?.limit ?? SEARCH_DEFAULT_LIMIT,
+      }));
+      return mapSearchResults(toVideoItems(result.items ?? []));
     } catch (error) {
       wrapError(error, 'NETWORK');
     }
@@ -47,21 +59,11 @@ export class YoutubeService implements MusicService {
       const result = await withRetry(() =>
         ytsr(id, { limit: 1, type: 'video' }),
       );
-      const item = toVideoItems(result.items)[0];
+      const item = toVideoItems(result.items ?? [])[0];
       if (item) return mapToTrack(item);
-
-      return mapToTrack({
-        type: 'video',
-        id,
-        name: 'Unknown Title',
-        url: `https://www.youtube.com/watch?v=${id}`,
-        thumbnail: '',
-        isLive: false,
-        duration: '',
-        author: null,
-      });
-    } catch (error) {
-      wrapError(error, 'NOT_FOUND');
+      return null;
+    } catch {
+      return null;
     }
   }
 }

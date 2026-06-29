@@ -6,6 +6,7 @@
   --glass-bg: rgba(255, 255, 255, 0.06);
   --glass-border: rgba(255, 255, 255, 0.1);
   --tab-bar-height: 4.5rem;
+  --now-playing-height: 5.5rem;
 }
 
 @theme inline {
@@ -43,4 +44,10 @@ body {
 
 .tab-bar-offset {
   padding-bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom));
+}
+
+.shell-offset {
+  padding-bottom: calc(
+    var(--tab-bar-height) + var(--now-playing-height) + env(safe-area-inset-bottom) + 0.5rem
+  );
 }

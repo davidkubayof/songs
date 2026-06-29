@@ -5,17 +5,37 @@ interface EmptyStateProps {
   title: string;
   description: string;
   action?: React.ReactNode;
+  variant?: 'violet' | 'blue' | 'rose';
 }
 
-export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
+const GLOW: Record<string, string> = {
+  violet: 'from-violet-600/30 via-fuchsia-500/10 to-transparent',
+  blue: 'from-blue-600/30 via-cyan-500/10 to-transparent',
+  rose: 'from-rose-600/30 via-orange-500/10 to-transparent',
+};
+
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+  variant = 'violet',
+}: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center px-4 py-10 text-center">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5">
-        <Icon className="h-8 w-8 text-zinc-400" strokeWidth={1.5} />
+    <div className="relative overflow-hidden rounded-2xl px-4 py-12 text-center">
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${GLOW[variant]}`}
+      />
+      <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl border border-white/10 bg-white/5 shadow-lg shadow-violet-500/10">
+        <Icon className="h-9 w-9 text-violet-200" strokeWidth={1.25} />
       </div>
-      <h3 className="text-base font-medium text-white">{title}</h3>
-      <p className="mt-2 max-w-xs text-sm text-zinc-500">{description}</p>
-      {action && <div className="mt-5">{action}</div>}
+      <h3 className="relative text-lg font-semibold tracking-tight text-white">
+        {title}
+      </h3>
+      <p className="relative mx-auto mt-2 max-w-sm text-sm leading-relaxed text-zinc-400">
+        {description}
+      </p>
+      {action && <div className="relative mt-6">{action}</div>}
     </div>
   );
 }

@@ -4,12 +4,14 @@ import dynamic from 'next/dynamic';
 
 import { PlayerErrorBoundary } from '@/components/player/PlayerErrorBoundary';
 import { useMediaSession } from '@/hooks/useMediaSession';
+import { usePrefetchNext } from '@/hooks/usePrefetchNext';
 import { usePlayerStore } from '@/store/usePlayerStore';
 
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false });
 
 export function PlayerShell() {
   useMediaSession();
+  usePrefetchNext();
 
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -29,6 +31,7 @@ export function PlayerShell() {
           volume={volume}
           width={0}
           height={0}
+          playsInline
           onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
           onError={() => skipOnError()}
           onEnded={() => playNext()}
