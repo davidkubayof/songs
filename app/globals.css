@@ -3,6 +3,9 @@
 :root {
   --background: #0a0a0a;
   --foreground: #ededed;
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --tab-bar-height: 4.5rem;
 }
 
 @theme inline {
@@ -24,4 +27,20 @@ body {
 
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+.px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+}
+
+.tab-bar-offset {
+  padding-bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom));
 }

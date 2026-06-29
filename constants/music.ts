@@ -1,3 +1,4 @@
+export const SEARCH_DEBOUNCE_MS = 300;
 export const SEARCH_DEFAULT_LIMIT = 20;
 export const RETRY_MAX_ATTEMPTS = 3;
 export const RETRY_BASE_DELAY_MS = 500;
