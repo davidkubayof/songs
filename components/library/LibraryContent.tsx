@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { usePlayerStore } from '@/store/usePlayerStore';
@@ -17,6 +19,9 @@ export function LibraryContent() {
         <p className="mt-1 text-sm text-zinc-400">
           {tracks.length} saved {tracks.length === 1 ? 'track' : 'tracks'}
         </p>
+        <Link href="/rooms" className="mt-2 inline-block text-sm text-zinc-400 hover:text-white">
+          Listening rooms →
+        </Link>
       </header>
       {!isHydrated ? (
         <GlassPanel className="p-8 text-center text-sm text-zinc-500">
@@ -26,7 +31,7 @@ export function LibraryContent() {
         <GlassPanel className="flex flex-col items-center p-8 text-center">
           <p className="text-sm text-zinc-400">Your library is empty</p>
           <p className="mt-2 text-xs text-zinc-500">
-            Use Add on Search results to save tracks
+            Guest tracks save offline in IndexedDB
           </p>
         </GlassPanel>
       ) : (

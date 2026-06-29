@@ -16,10 +16,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Songs',
   description: 'Music streaming PWA',
+  manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Songs',
+  },
+  icons: {
+    icon: '/icons/icon.svg',
+    apple: '/icons/icon.svg',
   },
 };
 

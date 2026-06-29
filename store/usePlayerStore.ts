@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import type { Track } from '@/types/Music';
+import type { RoomPlayback } from '@/types/Room';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 
 interface PlayerState {
@@ -8,6 +9,7 @@ interface PlayerState {
   isPlaying: boolean;
   volume: number;
   position: number;
+  isRemoteUpdate: boolean;
   playTrack: (track: Track) => void;
   pause: () => void;
   togglePlay: () => void;
@@ -16,6 +18,8 @@ interface PlayerState {
   playNext: () => void;
   playPrevious: () => void;
   skipOnError: () => void;
+  applyRoomPlayback: (playback: RoomPlayback) => void;
+  clearRemoteFlag: () => void;
 }
 
 function findNextTrack(current: Track, playlist: Track[]): Track | null {
@@ -37,6 +41,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isPlaying: false,
   volume: 1,
   position: 0,
+  isRemoteUpdate: false,
   playTrack: (track) => set({ currentTrack: track, isPlaying: true, position: 0 }),
   pause: () => set({ isPlaying: false }),
   togglePlay: () => {
@@ -69,4 +74,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
     set({ currentTrack: null, isPlaying: false, position: 0 });
   },
+  applyRoomPlayback: (playback) => {
+    set({
+      isRemoteUpdate: true,
+      currentTrack: playback.currentTrack,
+      position: playback.position,
+      isPlaying: playback.isPlaying,
+    });
+  },
+  clearRemoteFlag: () => set({ isRemoteUpdate: false }),
 }));

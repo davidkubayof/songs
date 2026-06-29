@@ -2,13 +2,13 @@ import { create } from 'zustand';
 
 import { createClient } from '@/lib/supabase';
 import {
-  fetchPlaylistTracks,
-  persistPlaylistTrack,
-} from '@/services/PlaylistService';
-import {
   addSupabasePlaylistTrack,
   fetchSupabasePlaylist,
 } from '@/services/SupabasePlaylistService';
+import {
+  loadGuestPlaylist,
+  saveGuestTrack,
+} from '@/services/GuestPlaylistStorage';
 import type { Track } from '@/types/Music';
 
 interface PlaylistState {
@@ -18,26 +18,20 @@ interface PlaylistState {
   addTrack: (track: Track) => Promise<void>;
 }
 
-async function loadGuestTracks(): Promise<Track[]> {
-  return fetchPlaylistTracks();
-}
-
-async function loadUserTracks(): Promise<Track[]> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return loadGuestTracks();
-  return fetchSupabasePlaylist(supabase);
-}
-
 export const usePlaylistStore = create<PlaylistState>((set, get) => ({
   tracks: [],
   isHydrated: false,
   hydrate: async () => {
     try {
-      const tracks = await loadUserTracks();
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const tracks = user
+        ? await fetchSupabasePlaylist(supabase)
+        : await loadGuestPlaylist();
       set({ tracks, isHydrated: true });
     } catch {
-      set({ isHydrated: true });
+      const tracks = await loadGuestPlaylist().catch(() => []);
+      set({ tracks, isHydrated: true });
     }
   },
   addTrack: async (track) => {
@@ -52,7 +46,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
       if (user) {
         await addSupabasePlaylistTrack(supabase, user.id, track);
       } else {
-        await persistPlaylistTrack(track);
+        await saveGuestTrack(track);
       }
     } catch {
       set({ tracks: previous });

@@ -1,4 +1,4 @@
-import { Home, Library, Search } from 'lucide-react';
+import { Home, Library, Radio, Search } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface TabItem {
@@ -11,4 +11,5 @@ export const TAB_ITEMS: TabItem[] = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/search', label: 'Search', icon: Search },
   { href: '/library', label: 'Library', icon: Library },
+  { href: '/rooms', label: 'Rooms', icon: Radio },
 ];
