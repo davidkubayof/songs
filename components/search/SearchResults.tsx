@@ -1,5 +1,9 @@
 'use client';
 
+import Link from 'next/link';
+import { Search } from 'lucide-react';
+
+import { EmptyState } from '@/components/ui/EmptyState';
 import type { Track } from '@/types/Music';
 
 import { TrackListItem } from '@/components/search/TrackListItem';
@@ -24,9 +28,11 @@ export function SearchResults({
 }: SearchResultsProps) {
   if (!hasQuery) {
     return (
-      <p className="px-1 pt-8 text-center text-sm text-zinc-500">
-        Find your next favorite track
-      </p>
+      <EmptyState
+        icon={Search}
+        title="Search music"
+        description="Find songs, artists, and albums. Results appear as you type."
+      />
     );
   }
 
@@ -34,15 +40,21 @@ export function SearchResults({
 
   if (error) {
     return (
-      <p className="px-1 pt-8 text-center text-sm text-red-400">{error}</p>
+      <EmptyState
+        icon={Search}
+        title="Search failed"
+        description={error}
+      />
     );
   }
 
   if (tracks.length === 0) {
     return (
-      <p className="px-1 pt-8 text-center text-sm text-zinc-500">
-        No results found
-      </p>
+      <EmptyState
+        icon={Search}
+        title="No results"
+        description="Try a different keyword or check your connection."
+      />
     );
   }
 

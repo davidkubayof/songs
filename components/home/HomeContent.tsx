@@ -1,7 +1,11 @@
 'use client';
 
+import Link from 'next/link';
+import { Music2 } from 'lucide-react';
+
 import { GlassPanel } from '@/components/ui/GlassPanel';
-import { HomeAuthBar } from '@/components/home/HomeAuthBar';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ProfileMenu } from '@/components/home/ProfileMenu';
 import { ShareButton } from '@/components/share/ShareButton';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { usePlayerStore } from '@/store/usePlayerStore';
@@ -17,9 +21,12 @@ export function HomeContent() {
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-safe">
-      <header className="pt-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Songs</h1>
-        <HomeAuthBar />
+      <header className="flex items-start justify-between pt-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Songs</h1>
+          <p className="mt-1 text-sm text-zinc-500">Your music, anywhere</p>
+        </div>
+        <ProfileMenu />
       </header>
       <GlassPanel className="p-5">
         <h2 className="text-sm font-medium text-zinc-400">Now Playing</h2>
@@ -31,7 +38,7 @@ export function HomeContent() {
               <button
                 type="button"
                 onClick={togglePlay}
-                className="mt-3 text-sm text-white hover:underline"
+                className="mt-3 text-sm text-violet-300 hover:underline"
               >
                 {isPlaying ? 'Pause' : 'Resume'}
               </button>
@@ -39,16 +46,34 @@ export function HomeContent() {
             <ShareButton track={currentTrack} />
           </div>
         ) : (
-          <p className="mt-3 text-sm text-zinc-500">Nothing playing yet</p>
+          <EmptyState
+            icon={Music2}
+            title="Nothing playing"
+            description="Search for a track and tap to start listening."
+            action={
+              <Link href="/search" className="text-sm text-violet-300 hover:underline">
+                Browse music
+              </Link>
+            }
+          />
         )}
       </GlassPanel>
       <section>
         <h2 className="mb-2 text-sm font-medium text-zinc-400">
-          Your Playlist ({tracks.length})
+          Recent ({tracks.length})
         </h2>
         {recent.length === 0 ? (
-          <GlassPanel className="p-5 text-sm text-zinc-500">
-            Add tracks from Search to build your playlist
+          <GlassPanel>
+            <EmptyState
+              icon={Music2}
+              title="No tracks yet"
+              description="Add songs from Search to build your playlist."
+              action={
+                <Link href="/search" className="text-sm text-violet-300 hover:underline">
+                  Go to Search
+                </Link>
+              }
+            />
           </GlassPanel>
         ) : (
           <GlassPanel className="divide-y divide-white/5 p-2">

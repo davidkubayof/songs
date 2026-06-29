@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { getMusicService } from '@/services/createMusicService';
 import { MusicServiceError } from '@/types/Music';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q') ?? '';

@@ -32,7 +32,8 @@ export class YoutubeService implements MusicService {
           type: 'video',
         }),
       );
-      return mapSearchResults(toVideoItems(result.items));
+      const tracks = mapSearchResults(toVideoItems(result.items ?? []));
+      return tracks;
     } catch (error) {
       wrapError(error, 'NETWORK');
     }

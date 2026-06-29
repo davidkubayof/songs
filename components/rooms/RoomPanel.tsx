@@ -1,6 +1,9 @@
 'use client';
 
+import { Radio } from 'lucide-react';
+
 import { GlassPanel } from '@/components/ui/GlassPanel';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRoomStore } from '@/store/useRoomStore';
 
@@ -16,8 +19,12 @@ export function RoomPanel() {
 
   if (role === 'Guest') {
     return (
-      <GlassPanel className="p-5 text-sm text-zinc-500">
-        Sign in to join listening rooms
+      <GlassPanel>
+        <EmptyState
+          icon={Radio}
+          title="Sign in required"
+          description="Create or join a listening room with friends in real time."
+        />
       </GlassPanel>
     );
   }
@@ -26,12 +33,14 @@ export function RoomPanel() {
     return (
       <GlassPanel className="flex flex-col gap-3 p-5">
         <p className="font-medium">{room?.name ?? 'Listening Room'}</p>
-        <p className="text-xs text-zinc-400 break-all">ID: {roomId}</p>
-        <p className="text-xs text-zinc-500">{isHost ? 'You are hosting' : 'Connected as listener'}</p>
+        <p className="text-xs text-zinc-400 break-all">Room ID: {roomId}</p>
+        <p className="text-xs text-violet-300/80">
+          {isHost ? 'Hosting — playback syncs to listeners' : 'Listening live'}
+        </p>
         <button
           type="button"
           onClick={() => leaveRoom()}
-          className="text-sm text-red-400 hover:underline"
+          className="mt-2 text-sm text-red-400 hover:underline"
         >
           Leave room
         </button>

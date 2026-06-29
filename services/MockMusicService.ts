@@ -1,59 +1,36 @@
 import { MOCK_LATENCY_MS } from '@/constants/music';
+import { MOCK_RAW_TRACKS } from '@/constants/mockTracks';
+import { mapToTrack } from '@/services/mappers';
 import type { MusicService } from '@/services/MusicService';
 import type { Track } from '@/types/Music';
 
-const MOCK_TRACKS: Track[] = [
-  {
-    id: 'mock:1',
-    source: 'mock',
-    sourceId: '1',
-    title: 'Midnight Drive',
-    artist: 'Neon Waves',
-    album: 'City Lights',
-    duration: 214,
-    thumbnailUrl: '/placeholder-track.png',
-    streamUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    isLive: false,
-  },
-  {
-    id: 'mock:2',
-    source: 'mock',
-    sourceId: '2',
-    title: 'Ocean Breeze',
-    artist: 'Coastal Echo',
-    duration: 187,
-    thumbnailUrl: '/placeholder-track.png',
-    streamUrl: 'https://www.youtube.com/watch?v=ktvTqknDobU',
-    isLive: false,
-  },
-  {
-    id: 'mock:3',
-    source: 'mock',
-    sourceId: '3',
-    title: 'Golden Hour',
-    artist: 'Sunset Collective',
-    album: 'Horizons',
-    duration: 245,
-    thumbnailUrl: '/placeholder-track.png',
-    streamUrl: 'https://www.youtube.com/watch?v=RgKAFK5djSk',
-    isLive: false,
-  },
-];
+const MOCK_TRACKS: Track[] = MOCK_RAW_TRACKS.map((raw) => ({
+  ...mapToTrack(raw),
+  id: `mock:${raw.id}`,
+  source: 'mock',
+  sourceId: raw.id,
+}));
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function matchTracks(query: string): Track[] {
+  const q = query.toLowerCase();
+  return MOCK_TRACKS.filter(
+    (t) =>
+      t.title.toLowerCase().includes(q) ||
+      t.artist.toLowerCase().includes(q),
+  );
+}
+
 export class MockMusicService implements MusicService {
   async search(query: string): Promise<Track[]> {
     await delay(MOCK_LATENCY_MS);
-    const q = query.trim().toLowerCase();
-    if (!q) return MOCK_TRACKS;
-    return MOCK_TRACKS.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.artist.toLowerCase().includes(q),
-    );
+    const trimmed = query.trim();
+    if (!trimmed) return MOCK_TRACKS;
+    const matched = matchTracks(trimmed);
+    return matched.length > 0 ? matched : MOCK_TRACKS;
   }
 
   async getTrack(sourceId: string): Promise<Track | null> {

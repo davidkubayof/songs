@@ -13,6 +13,11 @@ interface SearchState {
   hasQuery: boolean;
 }
 
+function parseTracks(data: unknown): Track[] {
+  if (!Array.isArray(data)) return [];
+  return data as Track[];
+}
+
 export function useSearchTracks(query: string): SearchState {
   const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -20,10 +25,10 @@ export function useSearchTracks(query: string): SearchState {
   const [error, setError] = useState<string | null>(null);
 
   const trimmed = debouncedQuery.trim();
-  const hasQuery = trimmed.length > 0;
+  const hasQuery = query.trim().length > 0;
 
   useEffect(() => {
-    if (!hasQuery) {
+    if (!trimmed) {
       setTracks([]);
       setLoading(false);
       setError(null);
@@ -34,13 +39,17 @@ export function useSearchTracks(query: string): SearchState {
     setLoading(true);
     setError(null);
 
-    fetch(`/api/music/search?q=${encodeURIComponent(trimmed)}`)
+    fetch(`/api/music/search?q=${encodeURIComponent(trimmed)}`, {
+      cache: 'no-store',
+    })
       .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error ?? 'Search failed');
+          throw new Error(
+            typeof body.error === 'string' ? body.error : 'Search failed',
+          );
         }
-        return res.json() as Promise<Track[]>;
+        return parseTracks(body);
       })
       .then((data) => {
         if (!cancelled) setTracks(data);
@@ -58,7 +67,7 @@ export function useSearchTracks(query: string): SearchState {
     return () => {
       cancelled = true;
     };
-  }, [trimmed, hasQuery]);
+  }, [trimmed]);
 
-  return { tracks, loading, error, hasQuery };
+  return { tracks, loading: loading || (query.trim().length > 0 && query.trim() !== trimmed), error, hasQuery };
 }
