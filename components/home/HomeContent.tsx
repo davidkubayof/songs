@@ -1,6 +1,8 @@
 'use client';
 
 import { GlassPanel } from '@/components/ui/GlassPanel';
+import { HomeAuthBar } from '@/components/home/HomeAuthBar';
+import { ShareButton } from '@/components/share/ShareButton';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
@@ -17,21 +19,24 @@ export function HomeContent() {
     <div className="flex flex-col gap-6 px-4 pt-safe">
       <header className="pt-4">
         <h1 className="text-2xl font-semibold tracking-tight">Songs</h1>
-        <p className="mt-1 text-sm text-zinc-400">Your music, anywhere</p>
+        <HomeAuthBar />
       </header>
       <GlassPanel className="p-5">
         <h2 className="text-sm font-medium text-zinc-400">Now Playing</h2>
         {currentTrack ? (
-          <div className="mt-3">
-            <p className="font-medium">{currentTrack.title}</p>
-            <p className="text-sm text-zinc-400">{currentTrack.artist}</p>
-            <button
-              type="button"
-              onClick={togglePlay}
-              className="mt-3 text-sm text-white underline-offset-2 hover:underline"
-            >
-              {isPlaying ? 'Pause' : 'Resume'}
-            </button>
+          <div className="mt-3 flex items-start justify-between gap-2">
+            <div>
+              <p className="font-medium">{currentTrack.title}</p>
+              <p className="text-sm text-zinc-400">{currentTrack.artist}</p>
+              <button
+                type="button"
+                onClick={togglePlay}
+                className="mt-3 text-sm text-white hover:underline"
+              >
+                {isPlaying ? 'Pause' : 'Resume'}
+              </button>
+            </div>
+            <ShareButton track={currentTrack} />
           </div>
         ) : (
           <p className="mt-3 text-sm text-zinc-500">Nothing playing yet</p>

@@ -2,19 +2,19 @@
 
 import Image from 'next/image';
 
-import { GlassPanel } from '@/components/ui/GlassPanel';
+import { ShareButton } from '@/components/share/ShareButton';
 import { PLACEHOLDER_THUMBNAIL } from '@/constants/music';
 import { formatDuration } from '@/lib/formatDuration';
-import { usePlayerStore } from '@/store/usePlayerStore';
 import type { Track } from '@/types/Music';
 
 interface TrackRowProps {
   track: Track;
   onPlay: (track: Track) => void;
   onAdd?: (track: Track) => void;
+  showShare?: boolean;
 }
 
-export function TrackRow({ track, onPlay, onAdd }: TrackRowProps) {
+export function TrackRow({ track, onPlay, onAdd, showShare = true }: TrackRowProps) {
   const thumb = track.thumbnailUrl || PLACEHOLDER_THUMBNAIL;
 
   return (
@@ -35,6 +35,7 @@ export function TrackRow({ track, onPlay, onAdd }: TrackRowProps) {
           {formatDuration(track.duration)}
         </span>
       </button>
+      {showShare && <ShareButton track={track} />}
       {onAdd && (
         <button
           type="button"
