@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { ADMIN_PREFIX } from '@/constants/auth';
-import { createMiddlewareClient } from '@/lib/supabase-middleware';
+import { createProxyClient } from '@/lib/supabase-proxy';
 
-export async function middleware(request: NextRequest) {
-  const { supabase, response } = createMiddlewareClient(request);
+export async function proxy(request: NextRequest) {
+  const { supabase, response } = createProxyClient(request);
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
 
