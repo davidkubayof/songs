@@ -2,6 +2,7 @@ import type { User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 
 import { createClient } from '@/lib/supabase';
+import { restoreDeletedUser } from '@/lib/restoreDeletedUser';
 import {
   resetPassword,
   signInWithEmail,
@@ -31,7 +32,11 @@ async function loadAuth(): Promise<Pick<AuthState, 'user' | 'profile' | 'role'>>
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { user: null, profile: null, role: 'Guest' };
   const profile = await fetchProfile(supabase, user.id);
-  return { user, profile, role: profile?.role ?? 'FreeUser' };
+  if (!profile) {
+    await signOutUser();
+    return { user: null, profile: null, role: 'Guest' };
+  }
+  return { user, profile, role: profile.role };
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -46,6 +51,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   signInEmail: async (email, password) => {
     await signInWithEmail(email, password);
+    const supabase = createClient();
+    await restoreDeletedUser(supabase);
     set(await loadAuth());
     usePlaylistStore.setState({ isHydrated: false });
     await usePlaylistStore.getState().hydrate();

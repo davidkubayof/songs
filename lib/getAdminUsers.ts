@@ -20,7 +20,7 @@ function profileFromAuthUser(user: {
   };
 }
 
-export async function getAdminUsers(): Promise<AdminUser[]> {
+export async function getAdminUsers(includeDeleted = false): Promise<AdminUser[]> {
   const admin = createAdminClient();
 
   const authUsers = [];
@@ -51,10 +51,16 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
     if (upsertError) throw new Error(upsertError.message);
   }
 
-  const { data, error } = await admin
+  let query = admin
     .from('profiles')
-    .select('id, role, display_name, avatar_url, created_at')
+    .select('id, role, display_name, avatar_url, created_at, is_deleted')
     .order('created_at', { ascending: false });
+
+  if (!includeDeleted) {
+    query = query.eq('is_deleted', false);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw new Error(error.message);
   return data ?? [];

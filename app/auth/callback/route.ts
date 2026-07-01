@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     if (error) {
       return NextResponse.redirect(`${origin}/auth/login?error=auth`);
     }
+    await supabase.rpc('restore_own_profile');
   }
 
   return NextResponse.redirect(`${origin}${next}`);

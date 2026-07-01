@@ -18,11 +18,11 @@ export async function proxy(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_deleted')
     .eq('id', user.id)
     .maybeSingle();
 
-  if (profile?.role !== 'Admin') {
+  if (!profile || profile.is_deleted || profile.role !== 'Admin') {
     return NextResponse.redirect(new URL('/', request.url));
   }
 

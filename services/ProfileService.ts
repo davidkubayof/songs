@@ -26,6 +26,7 @@ export async function fetchProfile(
     .from('profiles')
     .select('id, role, display_name, avatar_url')
     .eq('id', userId)
+    .eq('is_deleted', false)
     .maybeSingle();
 
   if (error || !data) return null;

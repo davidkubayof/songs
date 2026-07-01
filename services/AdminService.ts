@@ -8,10 +8,12 @@ export interface AdminUser {
   display_name: string | null;
   avatar_url: string | null;
   created_at: string;
+  is_deleted: boolean;
 }
 
-export async function fetchAdminUsers(): Promise<AdminUser[]> {
-  const res = await fetch('/api/admin/users');
+export async function fetchAdminUsers(includeDeleted = false): Promise<AdminUser[]> {
+  const url = includeDeleted ? '/api/admin/users?includeDeleted=1' : '/api/admin/users';
+  const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to load users');
   return res.json() as Promise<AdminUser[]>;
 }
@@ -28,4 +30,13 @@ export async function updateUserRole(id: string, role: DbUserRole): Promise<void
 export async function deleteAdminUser(id: string): Promise<void> {
   const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete user');
+}
+
+export async function restoreAdminUser(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/users/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ restore: true }),
+  });
+  if (!res.ok) throw new Error('Failed to restore user');
 }
