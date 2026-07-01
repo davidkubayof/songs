@@ -30,7 +30,13 @@ export async function signOutUser() {
 export async function resetPassword(email: string) {
   const supabase = createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/auth/login`,
+    redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
   });
+  if (error) throw error;
+}
+
+export async function updatePassword(password: string) {
+  const supabase = createClient();
+  const { error } = await supabase.auth.updateUser({ password });
   if (error) throw error;
 }
