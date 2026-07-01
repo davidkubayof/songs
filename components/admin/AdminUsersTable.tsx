@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Users } from 'lucide-react';
 
 import { AdminUserRow } from '@/components/admin/AdminUserRow';
@@ -9,30 +9,22 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { fetchAdminUsers } from '@/services/AdminService';
 import type { AdminUser } from '@/services/AdminService';
 
-export function AdminUsersTable() {
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+interface AdminUsersTableProps {
+  initialUsers: AdminUser[];
+}
 
-  const load = useCallback(async () => {
-    setLoading(true);
+export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
+  const [users, setUsers] = useState(initialUsers);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
     setError(null);
     try {
       setUsers(await fetchAdminUsers());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
-    } finally {
-      setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  if (loading) {
-    return <GlassPanel className="p-8 text-center text-sm text-zinc-500">Loading users…</GlassPanel>;
-  }
 
   if (error) {
     return (
@@ -59,7 +51,7 @@ export function AdminUsersTable() {
         </thead>
         <tbody>
           {users.map((user) => (
-            <AdminUserRow key={user.id} user={user} onUpdated={load} />
+            <AdminUserRow key={user.id} user={user} onUpdated={refresh} />
           ))}
         </tbody>
       </table>

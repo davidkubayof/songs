@@ -11,6 +11,7 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
+  htmlLimitedBots: /.*/,
   serverExternalPackages: ['@distube/ytsr'],
   images: {
     remotePatterns: [
