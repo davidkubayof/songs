@@ -15,6 +15,7 @@ interface PlayerState {
   playerReady: boolean;
   playerDuration: number;
   isRemoteUpdate: boolean;
+  playEpoch: number;
   playTrack: (track: Track) => void;
   pause: () => void;
   togglePlay: () => void;
@@ -43,15 +44,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playerReady: false,
   playerDuration: 0,
   isRemoteUpdate: false,
+  playEpoch: 0,
   playTrack: (track) =>
-    set({
+    set((state) => ({
       currentTrack: track,
       isPlaying: true,
       position: 0,
       seekTarget: null,
       playerReady: false,
       playerDuration: 0,
-    }),
+      playEpoch: state.playEpoch + 1,
+    })),
   pause: () => set({ isPlaying: false }),
   togglePlay: () => {
     const { currentTrack, isPlaying } = get();

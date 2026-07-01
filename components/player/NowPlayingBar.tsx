@@ -25,7 +25,7 @@ export function NowPlayingBar() {
           initial={{ y: 24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 24, opacity: 0 }}
-          className="glass fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 border-t border-white/10"
+          className="glass fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[60] border-t border-white/10"
         >
           <PlayerProgressBar />
           <div className="flex items-center gap-3 px-4 py-3">

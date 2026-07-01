@@ -36,20 +36,22 @@ export function PlayerProgressBar() {
       <span className="w-8 text-[10px] tabular-nums text-zinc-500">
         {formatDuration(Math.floor(displayPosition))}
       </span>
-      <div className="group relative h-1 flex-1">
-        <div className="absolute inset-0 rounded-full bg-white/10" />
-        <div
-          className={`absolute inset-y-0 left-0 rounded-full bg-violet-400 ${
-            isDragging ? '' : 'transition-[width] duration-300'
-          }`}
-          style={{ width: `${progressPct}%` }}
-        />
-        <div
-          className={`absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-400 shadow transition-opacity ${
-            isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          }`}
-          style={{ left: `${progressPct}%` }}
-        />
+      <div className="group relative flex flex-1 items-center py-3">
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1 -translate-y-1/2">
+          <div className="absolute inset-0 rounded-full bg-white/10" />
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full bg-violet-400 ${
+              isDragging ? '' : 'transition-[width] duration-300'
+            }`}
+            style={{ width: `${progressPct}%` }}
+          />
+          <div
+            className={`absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-400 shadow transition-opacity ${
+              isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            }`}
+            style={{ left: `${progressPct}%` }}
+          />
+        </div>
         <input
           type="range"
           min={0}
@@ -57,6 +59,7 @@ export function PlayerProgressBar() {
           step={0.1}
           value={Math.min(displayPosition, duration || 0)}
           onPointerDown={() => beginSeek()}
+          onInput={(e) => setDragValue(Number(e.currentTarget.value))}
           onChange={(e) => setDragValue(Number(e.target.value))}
           onPointerUp={(e) => commitSeek(Number((e.target as HTMLInputElement).value))}
           className="absolute inset-0 h-full w-full cursor-pointer opacity-0"

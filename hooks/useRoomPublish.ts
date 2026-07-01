@@ -15,6 +15,7 @@ export function useRoomPublish(): void {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const position = usePlayerStore((s) => s.position);
+  const seekTarget = usePlayerStore((s) => s.seekTarget);
   const isRemoteUpdate = usePlayerStore((s) => s.isRemoteUpdate);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -22,14 +23,29 @@ export function useRoomPublish(): void {
     if (!roomId || !isHost || isRemoteUpdate) return;
 
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
+
+    const publish = async () => {
       const supabase = createClient();
       const service = createRoomService(supabase);
-      await service.updatePlayback(roomId, { currentTrack, position, isPlaying });
-    }, PUBLISH_MS);
+      const effectivePosition = seekTarget ?? position;
+      await service.updatePlayback(roomId, {
+        currentTrack,
+        position: effectivePosition,
+        isPlaying,
+      });
+    };
+
+    if (seekTarget != null) {
+      void publish();
+      return () => {
+        if (timer.current) clearTimeout(timer.current);
+      };
+    }
+
+    timer.current = setTimeout(() => void publish(), PUBLISH_MS);
 
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [roomId, isHost, currentTrack, isPlaying, position, isRemoteUpdate]);
+  }, [roomId, isHost, currentTrack, isPlaying, position, seekTarget, isRemoteUpdate]);
 }
