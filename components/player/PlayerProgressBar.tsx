@@ -16,6 +16,9 @@ export function PlayerProgressBar() {
   const duration = Math.max(trackDuration, playerDuration);
   const [dragValue, setDragValue] = useState<number | null>(null);
   const displayPosition = dragValue ?? position;
+  const progressPct =
+    duration > 0 ? Math.min(100, (displayPosition / duration) * 100) : 0;
+  const isDragging = dragValue != null;
 
   const commitSeek = (value: number) => {
     setDragValue(null);
@@ -33,18 +36,33 @@ export function PlayerProgressBar() {
       <span className="w-8 text-[10px] tabular-nums text-zinc-500">
         {formatDuration(Math.floor(displayPosition))}
       </span>
-      <input
-        type="range"
-        min={0}
-        max={duration || 1}
-        step={0.1}
-        value={Math.min(displayPosition, duration || 0)}
-        onPointerDown={() => beginSeek()}
-        onChange={(e) => setDragValue(Number(e.target.value))}
-        onPointerUp={(e) => commitSeek(Number((e.target as HTMLInputElement).value))}
-        className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-white/10 accent-violet-400"
-        aria-label="Seek"
-      />
+      <div className="group relative h-1 flex-1">
+        <div className="absolute inset-0 rounded-full bg-white/10" />
+        <div
+          className={`absolute inset-y-0 left-0 rounded-full bg-violet-400 ${
+            isDragging ? '' : 'transition-[width] duration-300'
+          }`}
+          style={{ width: `${progressPct}%` }}
+        />
+        <div
+          className={`absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-400 shadow transition-opacity ${
+            isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
+          style={{ left: `${progressPct}%` }}
+        />
+        <input
+          type="range"
+          min={0}
+          max={duration || 1}
+          step={0.1}
+          value={Math.min(displayPosition, duration || 0)}
+          onPointerDown={() => beginSeek()}
+          onChange={(e) => setDragValue(Number(e.target.value))}
+          onPointerUp={(e) => commitSeek(Number((e.target as HTMLInputElement).value))}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          aria-label="Seek"
+        />
+      </div>
       <span className="w-8 text-right text-[10px] tabular-nums text-zinc-500">
         {formatDuration(duration)}
       </span>
