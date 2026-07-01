@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { createClient } from '@/lib/supabase';
+import { isValidVideoId } from '@/lib/youtubeVideoId';
 import {
   addSupabasePlaylistTrack,
   fetchSupabasePlaylist,
@@ -13,6 +14,10 @@ import {
   saveGuestTrack,
 } from '@/services/GuestPlaylistStorage';
 import type { Track } from '@/types/Music';
+
+function filterPlayableTracks(tracks: Track[]): Track[] {
+  return tracks.filter((t) => isValidVideoId(t.sourceId));
+}
 
 interface PlaylistState {
   tracks: Track[];
@@ -41,14 +46,14 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
           }
           await saveGuestPlaylist([]);
         }
-        const tracks = await fetchSupabasePlaylist(supabase);
+        const tracks = filterPlayableTracks(await fetchSupabasePlaylist(supabase));
         set({ tracks, isHydrated: true });
       } else {
-        const tracks = await loadGuestPlaylist();
+        const tracks = filterPlayableTracks(await loadGuestPlaylist());
         set({ tracks, isHydrated: true });
       }
     } catch {
-      const tracks = await loadGuestPlaylist().catch(() => []);
+      const tracks = filterPlayableTracks(await loadGuestPlaylist().catch(() => []));
       set({ tracks, isHydrated: true });
     }
   },

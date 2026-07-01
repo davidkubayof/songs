@@ -2,7 +2,9 @@
 
 import { useEffect } from 'react';
 
+import { getStreamResolveEndpoint } from '@/lib/getAudioStreamUrl';
 import { findNextTrack } from '@/lib/playerQueue';
+import { isValidVideoId } from '@/lib/youtubeVideoId';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 
@@ -13,15 +15,15 @@ export function usePrefetchNext(): void {
   useEffect(() => {
     if (!currentTrack) return;
     const next = findNextTrack(currentTrack, tracks);
-    if (!next?.thumbnailUrl) return;
+    if (!next?.thumbnailUrl || !isValidVideoId(next.sourceId)) return;
 
     const img = new Image();
     img.src = next.thumbnailUrl;
 
     const link = document.createElement('link');
     link.rel = 'prefetch';
-    link.as = 'document';
-    link.href = next.streamUrl;
+    link.as = 'fetch';
+    link.href = getStreamResolveEndpoint(next.sourceId);
     document.head.appendChild(link);
 
     return () => {

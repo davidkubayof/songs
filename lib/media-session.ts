@@ -1,5 +1,13 @@
 import type { Track } from '@/types/Music';
 
+function resolveArtworkUrl(thumbnailUrl: string): string {
+  if (thumbnailUrl.startsWith('https://')) return thumbnailUrl;
+  if (typeof window !== 'undefined') {
+    return new URL(thumbnailUrl, window.location.origin).href;
+  }
+  return thumbnailUrl;
+}
+
 export function setTrackMetadata(track: Track): void {
   if (!('mediaSession' in navigator)) return;
 
@@ -9,7 +17,7 @@ export function setTrackMetadata(track: Track): void {
     album: track.album ?? 'Songs',
     artwork: [
       {
-        src: track.thumbnailUrl,
+        src: resolveArtworkUrl(track.thumbnailUrl),
         sizes: '512x512',
         type: 'image/jpeg',
       },

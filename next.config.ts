@@ -12,7 +12,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   htmlLimitedBots: /.*/,
-  serverExternalPackages: ['@distube/ytsr'],
+  serverExternalPackages: ['@distube/ytsr', 'youtubei.js'],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'i.ytimg.com' },
