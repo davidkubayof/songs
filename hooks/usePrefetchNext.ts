@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 
-import { getAudioProxyUrl } from '@/lib/getAudioStreamUrl';
+import { getAudioProxyUrl, getStreamResolveEndpoint } from '@/lib/getAudioStreamUrl';
+import { isIos } from '@/lib/isIos';
 import { findNextTrack } from '@/lib/playerQueue';
 import { isValidVideoId } from '@/lib/youtubeVideoId';
 import { usePlayerStore } from '@/store/usePlayerStore';
@@ -23,7 +24,9 @@ export function usePrefetchNext(): void {
     const link = document.createElement('link');
     link.rel = 'prefetch';
     link.as = 'fetch';
-    link.href = getAudioProxyUrl(next.sourceId);
+    link.href = isIos()
+      ? getStreamResolveEndpoint(next.sourceId)
+      : getAudioProxyUrl(next.sourceId);
     document.head.appendChild(link);
 
     return () => {

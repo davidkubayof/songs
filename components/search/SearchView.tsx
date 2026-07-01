@@ -7,6 +7,7 @@ import { SearchBar } from '@/components/search/SearchBar';
 import { SearchResults } from '@/components/search/SearchResults';
 import { ViewToggle } from '@/components/search/ViewToggle';
 import { useSearchTracks } from '@/hooks/useSearchTracks';
+import { usePlayTrack } from '@/hooks/usePlayTrack';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 
@@ -14,7 +15,7 @@ export function SearchView() {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<'grid' | 'list'>('grid');
   const { tracks, loading, hasQuery } = useSearchTracks(query);
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playTrack = usePlayTrack();
   const addTrack = usePlaylistStore((s) => s.addTrack);
   const playlistTracks = usePlaylistStore((s) => s.tracks);
   const savedIds = useMemo(() => new Set(playlistTracks.map((t) => t.id)), [playlistTracks]);

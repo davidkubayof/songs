@@ -7,13 +7,13 @@ import { Music2 } from 'lucide-react';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { fetchWithRetry } from '@/lib/fetchWithRetry';
-import { usePlayerStore } from '@/store/usePlayerStore';
+import { usePlayTrack } from '@/hooks/usePlayTrack';
 import type { Track } from '@/types/Music';
 
 export default function TrackPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playTrack = usePlayTrack();
   const [error, setError] = useState(false);
 
   useEffect(() => {

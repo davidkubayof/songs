@@ -33,6 +33,7 @@ export async function GET(
     const responseHeaders = new Headers();
     responseHeaders.set('Content-Type', mimeType);
     responseHeaders.set('Accept-Ranges', 'bytes');
+    responseHeaders.set('Cache-Control', 'no-store, no-cache');
 
     const contentLength = upstream.headers.get('content-length');
     if (contentLength) responseHeaders.set('Content-Length', contentLength);

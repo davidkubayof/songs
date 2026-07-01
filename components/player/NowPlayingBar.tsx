@@ -6,12 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { PlayerProgressBar } from '@/components/player/PlayerProgressBar';
 import { PLACEHOLDER_THUMBNAIL } from '@/constants/music';
+import { useTogglePlay } from '@/hooks/useTogglePlay';
 import { usePlayerStore } from '@/store/usePlayerStore';
 
 export function NowPlayingBar() {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const togglePlay = usePlayerStore((s) => s.togglePlay);
+  const togglePlay = useTogglePlay();
   const playNext = usePlayerStore((s) => s.playNext);
   const playPrevious = usePlayerStore((s) => s.playPrevious);
   const volume = usePlayerStore((s) => s.volume);

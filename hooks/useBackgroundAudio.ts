@@ -17,6 +17,7 @@ export function useBackgroundAudio(
     if (!audio) return;
 
     const resumeIfNeeded = () => {
+      if (!document.hidden) return;
       const el = audioRef.current;
       if (!el || !usePlayerStore.getState().isPlaying) return;
       if (el.paused) {
@@ -25,6 +26,7 @@ export function useBackgroundAudio(
     };
 
     const handlePause = () => {
+      if (!document.hidden) return;
       if (userPausedRef.current) return;
       if (!usePlayerStore.getState().isPlaying) return;
       audioRef.current?.play().catch(() => {});
@@ -32,6 +34,7 @@ export function useBackgroundAudio(
 
     let stallTimer: ReturnType<typeof setTimeout> | null = null;
     const handleStall = () => {
+      if (!document.hidden) return;
       if (stallTimer) clearTimeout(stallTimer);
       stallTimer = setTimeout(resumeIfNeeded, STALL_RETRY_MS);
     };

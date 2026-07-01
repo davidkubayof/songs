@@ -6,13 +6,13 @@ import { Library as LibraryIcon } from 'lucide-react';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TrackRow } from '@/components/tracks/TrackRow';
-import { usePlayerStore } from '@/store/usePlayerStore';
+import { usePlayTrack } from '@/hooks/usePlayTrack';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 
 export function LibraryContent() {
   const tracks = usePlaylistStore((s) => s.tracks);
   const isHydrated = usePlaylistStore((s) => s.isHydrated);
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playTrack = usePlayTrack();
   const removeTrack = usePlaylistStore((s) => s.removeTrack);
 
   return (

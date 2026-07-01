@@ -7,13 +7,15 @@ import { GlassPanel } from '@/components/ui/GlassPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ShareButton } from '@/components/share/ShareButton';
 import { TrackRow } from '@/components/tracks/TrackRow';
+import { usePlayTrack } from '@/hooks/usePlayTrack';
+import { useTogglePlay } from '@/hooks/useTogglePlay';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 
 function NowPlayingCard() {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const togglePlay = usePlayerStore((s) => s.togglePlay);
+  const togglePlay = useTogglePlay();
 
   if (!currentTrack) {
     return (
@@ -50,7 +52,7 @@ function NowPlayingCard() {
 }
 
 export function HomeContent() {
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playTrack = usePlayTrack();
   const tracks = usePlaylistStore((s) => s.tracks);
   const recent = tracks.slice(-4).reverse();
 
