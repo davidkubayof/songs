@@ -1,14 +1,14 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { PlayerErrorBoundary } from '@/components/player/PlayerErrorBoundary';
 import { useBackgroundAudio } from '@/hooks/useBackgroundAudio';
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { usePrefetchNext } from '@/hooks/usePrefetchNext';
-import { getStreamResolveEndpoint } from '@/lib/getAudioStreamUrl';
-import { fetchWithRetry } from '@/lib/fetchWithRetry';
+import { getAudioProxyUrl } from '@/lib/getAudioStreamUrl';
+import { isIos } from '@/lib/isIos';
 import { isValidVideoId } from '@/lib/youtubeVideoId';
 import { usePlayerStore } from '@/store/usePlayerStore';
 
@@ -20,12 +20,13 @@ const SEEK_VERIFY_MS = 300;
 const SEEK_TOLERANCE = 1;
 
 export function PlayerShell() {
-  useMediaSession();
-  usePrefetchNext();
-
   const audioRef = useRef<HTMLAudioElement>(null);
   const playerRef = useRef<HTMLVideoElement>(null);
-  useBackgroundAudio(audioRef);
+  const userPausedRef = useRef(false);
+
+  useMediaSession(audioRef, userPausedRef);
+  usePrefetchNext();
+  useBackgroundAudio(audioRef, userPausedRef);
 
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -41,16 +42,19 @@ export function PlayerShell() {
   const setPlayerDuration = usePlayerStore((s) => s.setPlayerDuration);
 
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('audio');
-  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const retriedRef = useRef(false);
-  const resolveGenRef = useRef(0);
   const seekVerifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekFailCountRef = useRef(0);
   const pendingSeekRef = useRef<number | null>(null);
   const playbackModeRef = useRef<PlaybackMode>('audio');
 
   playbackModeRef.current = playbackMode;
+
+  const proxyUrl = useMemo(() => {
+    if (!currentTrack || !isValidVideoId(currentTrack.sourceId)) return null;
+    return getAudioProxyUrl(currentTrack.sourceId, retryKey);
+  }, [currentTrack, retryKey]);
 
   const clearSeekVerifyTimer = useCallback(() => {
     if (seekVerifyTimerRef.current) {
@@ -60,10 +64,13 @@ export function PlayerShell() {
   }, []);
 
   const fallbackToEmbed = useCallback(() => {
+    if (isIos()) {
+      skipOnError();
+      return;
+    }
     setPlaybackMode('embed');
-    setResolvedUrl(null);
     setPlayerReady(false);
-  }, [setPlayerReady]);
+  }, [setPlayerReady, skipOnError]);
 
   const confirmSeek = useCallback(() => {
     clearSeekVerifyTimer();
@@ -104,7 +111,6 @@ export function PlayerShell() {
 
         if (playbackModeRef.current === 'audio') {
           setPlayerReady(false);
-          setResolvedUrl(null);
           setRetryKey((k) => k + 1);
         }
       }, SEEK_VERIFY_MS);
@@ -137,7 +143,6 @@ export function PlayerShell() {
   useEffect(() => {
     retriedRef.current = false;
     setRetryKey(0);
-    setResolvedUrl(null);
     setPlaybackMode('audio');
     setPlayerReady(false);
     clearSeekVerifyTimer();
@@ -147,39 +152,10 @@ export function PlayerShell() {
 
   useEffect(() => {
     if (!currentTrack || playbackMode !== 'audio') return;
-
     if (!isValidVideoId(currentTrack.sourceId)) {
       skipOnError();
-      return;
     }
-
-    const gen = ++resolveGenRef.current;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const endpoint = getStreamResolveEndpoint(currentTrack.sourceId, retryKey);
-        const res = await fetchWithRetry(endpoint);
-        if (!res.ok) throw new Error('Resolve failed');
-        const data = (await res.json()) as { url?: string };
-        if (!data.url?.startsWith('https://')) throw new Error('Invalid stream url');
-        if (cancelled || gen !== resolveGenRef.current) return;
-        setResolvedUrl(data.url);
-      } catch {
-        if (cancelled || gen !== resolveGenRef.current) return;
-        if (!retriedRef.current) {
-          retriedRef.current = true;
-          setRetryKey((k) => k + 1);
-          return;
-        }
-        fallbackToEmbed();
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentTrack, retryKey, skipOnError, playbackMode, fallbackToEmbed, playEpoch]);
+  }, [currentTrack, playbackMode, skipOnError, playEpoch]);
 
   useEffect(() => {
     if (seekTarget == null || !playerReady) return;
@@ -190,18 +166,20 @@ export function PlayerShell() {
     const audio = audioRef.current;
     if (!audio || playbackMode !== 'audio') return;
     audio.volume = volume;
-  }, [volume, resolvedUrl, playbackMode]);
+  }, [volume, proxyUrl, playbackMode]);
 
   useEffect(() => {
     if (playbackMode === 'embed') return;
     const audio = audioRef.current;
-    if (!audio || !resolvedUrl) return;
+    if (!audio || !proxyUrl) return;
     if (isPlaying) {
+      userPausedRef.current = false;
       audio.play().catch(() => {});
     } else {
+      userPausedRef.current = true;
       audio.pause();
     }
-  }, [isPlaying, resolvedUrl, playerReady, playbackMode]);
+  }, [isPlaying, proxyUrl, playerReady, playbackMode]);
 
   useEffect(() => {
     if (playbackMode !== 'embed') return;
@@ -242,7 +220,6 @@ export function PlayerShell() {
     if (!retriedRef.current) {
       retriedRef.current = true;
       setPlayerReady(false);
-      setResolvedUrl(null);
       setRetryKey((k) => k + 1);
       return;
     }
@@ -250,7 +227,6 @@ export function PlayerShell() {
   };
 
   if (!currentTrack) return null;
-  if (playbackMode === 'audio' && !resolvedUrl) return null;
 
   if (playbackMode === 'embed') {
     return (
@@ -276,12 +252,15 @@ export function PlayerShell() {
     );
   }
 
+  if (!proxyUrl) return null;
+
   return (
     <PlayerErrorBoundary key={`${currentTrack.id}-${retryKey}`} onError={skipOnError}>
       <audio
         ref={audioRef}
-        src={resolvedUrl!}
-        preload="metadata"
+        src={proxyUrl}
+        preload="auto"
+        playsInline
         className="sr-only"
         onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
