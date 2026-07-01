@@ -10,7 +10,7 @@ import {
   signOutUser,
   signUpWithEmail,
 } from '@/services/authService';
-import { fetchProfile } from '@/services/ProfileService';
+import { fetchProfile, updateProfile } from '@/services/ProfileService';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import type { Profile, UserRole } from '@/types/Auth';
 
@@ -25,6 +25,7 @@ interface AuthState {
   signInGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
+  updateDisplayName: (displayName: string) => Promise<void>;
 }
 
 async function loadAuth(): Promise<Pick<AuthState, 'user' | 'profile' | 'role'>> {
@@ -74,5 +75,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   requestPasswordReset: async (email) => {
     await resetPassword(email);
+  },
+  updateDisplayName: async (displayName) => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not signed in');
+    const profile = await updateProfile(supabase, user.id, { displayName });
+    set({ profile, role: profile.role });
   },
 }));

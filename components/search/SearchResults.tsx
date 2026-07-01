@@ -17,6 +17,7 @@ interface SearchResultsProps {
   mode: ViewMode;
   onPlay: (track: Track) => void;
   onAdd: (track: Track) => void;
+  savedIds: Set<string>;
 }
 
 export function SearchResults({
@@ -26,6 +27,7 @@ export function SearchResults({
   mode,
   onPlay,
   onAdd,
+  savedIds,
 }: SearchResultsProps) {
   if (!hasQuery) {
     return (
@@ -51,5 +53,5 @@ export function SearchResults({
     );
   }
 
-  return <TrackGrid tracks={tracks} mode={mode} onPlay={onPlay} onAdd={onAdd} />;
+  return <TrackGrid tracks={tracks} mode={mode} onPlay={onPlay} onAdd={onAdd} savedIds={savedIds} />;
 }

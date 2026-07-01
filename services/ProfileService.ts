@@ -32,3 +32,22 @@ export async function fetchProfile(
   if (error || !data) return null;
   return mapProfile(data as ProfileRow);
 }
+
+export async function updateProfile(
+  supabase: SupabaseClient,
+  userId: string,
+  updates: { displayName?: string },
+): Promise<Profile> {
+  const payload: Record<string, string> = {};
+  if (updates.displayName !== undefined) payload.display_name = updates.displayName;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(payload)
+    .eq('id', userId)
+    .select('id, role, display_name, avatar_url')
+    .single();
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to update profile');
+  return mapProfile(data as ProfileRow);
+}

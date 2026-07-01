@@ -1,6 +1,6 @@
 'use client';
 
-import { Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+import { Pause, Play, SkipBack, SkipForward, Volume2 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,6 +14,8 @@ export function NowPlayingBar() {
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const playNext = usePlayerStore((s) => s.playNext);
   const playPrevious = usePlayerStore((s) => s.playPrevious);
+  const volume = usePlayerStore((s) => s.volume);
+  const setVolume = usePlayerStore((s) => s.setVolume);
 
   return (
     <AnimatePresence>
@@ -42,6 +44,19 @@ export function NowPlayingBar() {
               <p className="truncate text-xs text-zinc-400">{currentTrack.artist}</p>
             </div>
             <div className="flex items-center gap-1">
+              <div className="hidden items-center gap-1 sm:flex">
+                <Volume2 className="h-4 w-4 text-zinc-500" />
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={volume}
+                  onChange={(e) => setVolume(Number(e.target.value))}
+                  className="h-1 w-16 cursor-pointer appearance-none rounded-full bg-white/10 accent-violet-400"
+                  aria-label="Volume"
+                />
+              </div>
               <button type="button" onClick={playPrevious} className="p-2 text-zinc-400 hover:text-white">
                 <SkipBack className="h-5 w-5" />
               </button>

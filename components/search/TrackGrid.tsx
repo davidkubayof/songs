@@ -13,9 +13,10 @@ interface TrackGridProps {
   mode: ViewMode;
   onPlay: (track: Track) => void;
   onAdd: (track: Track) => void;
+  savedIds: Set<string>;
 }
 
-export function TrackGrid({ tracks, mode, onPlay, onAdd }: TrackGridProps) {
+export function TrackGrid({ tracks, mode, onPlay, onAdd, savedIds }: TrackGridProps) {
   return (
     <AnimatePresence mode="popLayout">
       {mode === 'grid' ? (
@@ -26,14 +27,25 @@ export function TrackGrid({ tracks, mode, onPlay, onAdd }: TrackGridProps) {
           className="grid grid-cols-2 gap-4 sm:grid-cols-3"
         >
           {tracks.map((track) => (
-            <TrackGridItem key={track.id} track={track} onPlay={onPlay} onAdd={onAdd} />
+            <TrackGridItem
+              key={track.id}
+              track={track}
+              onPlay={onPlay}
+              onAdd={onAdd}
+              isSaved={savedIds.has(track.id)}
+            />
           ))}
         </motion.div>
       ) : (
         <motion.ul key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-1">
           {tracks.map((track) => (
             <li key={track.id}>
-              <TrackListItem track={track} onPlay={onPlay} onAdd={onAdd} />
+              <TrackListItem
+                track={track}
+                onPlay={onPlay}
+                onAdd={onAdd}
+                isSaved={savedIds.has(track.id)}
+              />
             </li>
           ))}
         </motion.ul>

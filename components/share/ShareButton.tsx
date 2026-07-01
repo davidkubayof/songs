@@ -15,12 +15,13 @@ export function ShareButton({ track }: ShareButtonProps) {
   if (role === 'Guest') return null;
 
   const handleShare = async () => {
-    const payload = { title: track.title, text: track.artist, url: track.streamUrl };
+    const url = `${window.location.origin}/track/${track.id}`;
+    const payload = { title: track.title, text: track.artist, url };
     if (navigator.share) {
       await navigator.share(payload);
       return;
     }
-    await navigator.clipboard.writeText(track.streamUrl);
+    await navigator.clipboard.writeText(`${window.location.origin}/track/${track.id}`);
   };
 
   return (

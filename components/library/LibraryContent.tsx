@@ -13,6 +13,7 @@ export function LibraryContent() {
   const tracks = usePlaylistStore((s) => s.tracks);
   const isHydrated = usePlaylistStore((s) => s.isHydrated);
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const removeTrack = usePlaylistStore((s) => s.removeTrack);
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-safe">
@@ -45,7 +46,7 @@ export function LibraryContent() {
       ) : (
         <GlassPanel className="divide-y divide-white/5 p-2">
           {tracks.map((track) => (
-            <TrackRow key={track.id} track={track} onPlay={playTrack} />
+            <TrackRow key={track.id} track={track} onPlay={playTrack} onRemove={removeTrack} />
           ))}
         </GlassPanel>
       )}

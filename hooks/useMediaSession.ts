@@ -17,7 +17,7 @@ export function useMediaSession(): void {
   const pause = usePlayerStore((s) => s.pause);
   const playNext = usePlayerStore((s) => s.playNext);
   const playPrevious = usePlayerStore((s) => s.playPrevious);
-  const setPosition = usePlayerStore((s) => s.setPosition);
+  const seekTo = usePlayerStore((s) => s.seekTo);
 
   useEffect(() => {
     if (!currentTrack) {
@@ -39,7 +39,7 @@ export function useMediaSession(): void {
     navigator.mediaSession.setActionHandler('previoustrack', () => playPrevious());
     navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
     navigator.mediaSession.setActionHandler('seekto', (details) => {
-      if (details.seekTime != null) setPosition(details.seekTime);
+      if (details.seekTime != null) seekTo(details.seekTime);
     });
 
     return () => {
@@ -47,5 +47,5 @@ export function useMediaSession(): void {
         navigator.mediaSession.setActionHandler(action as MediaSessionAction, null);
       });
     };
-  }, [currentTrack, pause, playNext, playPrevious, setPosition]);
+  }, [currentTrack, pause, playNext, playPrevious, seekTo]);
 }

@@ -10,12 +10,15 @@ interface PlayerState {
   isPlaying: boolean;
   volume: number;
   position: number;
+  seekTarget: number | null;
   isRemoteUpdate: boolean;
   playTrack: (track: Track) => void;
   pause: () => void;
   togglePlay: () => void;
   setVolume: (volume: number) => void;
   setPosition: (position: number) => void;
+  seekTo: (position: number) => void;
+  clearSeekTarget: () => void;
   playNext: () => void;
   playPrevious: () => void;
   skipOnError: () => void;
@@ -28,6 +31,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isPlaying: false,
   volume: 1,
   position: 0,
+  seekTarget: null,
   isRemoteUpdate: false,
   playTrack: (track) => set({ currentTrack: track, isPlaying: true, position: 0 }),
   pause: () => set({ isPlaying: false }),
@@ -39,6 +43,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setVolume: (volume) =>
     set({ volume: Math.min(1, Math.max(0, volume)) }),
   setPosition: (position) => set({ position }),
+  seekTo: (position) => set({ position, seekTarget: position }),
+  clearSeekTarget: () => set({ seekTarget: null }),
   playNext: () => {
     const { currentTrack } = get();
     if (!currentTrack) return;

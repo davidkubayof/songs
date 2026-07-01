@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 
 import { SearchBar } from '@/components/search/SearchBar';
@@ -16,6 +16,8 @@ export function SearchView() {
   const { tracks, loading, hasQuery } = useSearchTracks(query);
   const playTrack = usePlayerStore((s) => s.playTrack);
   const addTrack = usePlaylistStore((s) => s.addTrack);
+  const playlistTracks = usePlaylistStore((s) => s.tracks);
+  const savedIds = useMemo(() => new Set(playlistTracks.map((t) => t.id)), [playlistTracks]);
 
   return (
     <motion.div
@@ -35,6 +37,7 @@ export function SearchView() {
         mode={mode}
         onPlay={playTrack}
         onAdd={addTrack}
+        savedIds={savedIds}
       />
     </motion.div>
   );

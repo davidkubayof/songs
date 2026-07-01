@@ -11,9 +11,10 @@ interface TrackGridItemProps {
   track: Track;
   onPlay: (track: Track) => void;
   onAdd: (track: Track) => void;
+  isSaved?: boolean;
 }
 
-export function TrackGridItem({ track, onPlay, onAdd }: TrackGridItemProps) {
+export function TrackGridItem({ track, onPlay, onAdd, isSaved }: TrackGridItemProps) {
   const thumb = track.thumbnailUrl || PLACEHOLDER_THUMBNAIL;
 
   return (
@@ -37,9 +38,10 @@ export function TrackGridItem({ track, onPlay, onAdd }: TrackGridItemProps) {
         <button
           type="button"
           onClick={() => onAdd(track)}
-          className="rounded-lg border border-white/10 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
+          disabled={isSaved}
+          className="rounded-lg border border-white/10 py-1.5 text-xs text-zinc-300 hover:bg-white/10 disabled:cursor-default disabled:border-violet-500/30 disabled:text-violet-300 disabled:hover:bg-transparent"
         >
-          Add
+          {isSaved ? 'Saved' : 'Add'}
         </button>
       </div>
     </motion.article>

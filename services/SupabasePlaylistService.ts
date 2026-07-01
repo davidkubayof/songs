@@ -31,3 +31,15 @@ export async function addSupabasePlaylistTrack(
 
   if (error) throw new Error(error.message);
 }
+
+export async function removeSupabasePlaylistTrack(
+  supabase: SupabaseClient,
+  trackId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('playlist_tracks')
+    .delete()
+    .eq('track_id', trackId);
+
+  if (error) throw new Error(error.message);
+}

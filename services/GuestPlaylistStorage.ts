@@ -10,6 +10,10 @@ export async function saveGuestTrack(track: Track): Promise<void> {
   await songsDb.tracks.put({ id: track.id, track });
 }
 
+export async function removeGuestTrack(trackId: string): Promise<void> {
+  await songsDb.tracks.delete(trackId);
+}
+
 export async function saveGuestPlaylist(tracks: Track[]): Promise<void> {
   await songsDb.transaction('rw', songsDb.tracks, async () => {
     await songsDb.tracks.clear();

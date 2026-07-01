@@ -5,7 +5,6 @@ import { Music2 } from 'lucide-react';
 
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { ProfileMenu } from '@/components/home/ProfileMenu';
 import { ShareButton } from '@/components/share/ShareButton';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { usePlayerStore } from '@/store/usePlayerStore';
@@ -57,12 +56,11 @@ export function HomeContent() {
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-safe">
-      <header className="flex items-start justify-between pt-4">
+      <header className="pt-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Songs</h1>
           <p className="mt-1 text-sm text-zinc-500">Premium streaming</p>
         </div>
-        <ProfileMenu />
       </header>
       <GlassPanel className="overflow-hidden">
         <p className="border-b border-white/5 px-4 py-3 text-xs font-medium uppercase tracking-wider text-zinc-500">

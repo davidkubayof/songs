@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { Trash2 } from 'lucide-react';
 
 import { ShareButton } from '@/components/share/ShareButton';
 import { PLACEHOLDER_THUMBNAIL } from '@/constants/music';
@@ -11,10 +12,12 @@ interface TrackRowProps {
   track: Track;
   onPlay: (track: Track) => void;
   onAdd?: (track: Track) => void;
+  onRemove?: (track: Track) => void;
+  isSaved?: boolean;
   showShare?: boolean;
 }
 
-export function TrackRow({ track, onPlay, onAdd, showShare = true }: TrackRowProps) {
+export function TrackRow({ track, onPlay, onAdd, onRemove, isSaved, showShare = true }: TrackRowProps) {
   const thumb = track.thumbnailUrl || PLACEHOLDER_THUMBNAIL;
 
   return (
@@ -40,9 +43,20 @@ export function TrackRow({ track, onPlay, onAdd, showShare = true }: TrackRowPro
         <button
           type="button"
           onClick={() => onAdd(track)}
-          className="shrink-0 rounded-lg px-3 py-2 text-xs text-zinc-400 hover:bg-white/10 hover:text-white"
+          disabled={isSaved}
+          className="shrink-0 rounded-lg px-3 py-2 text-xs text-zinc-400 hover:bg-white/10 hover:text-white disabled:cursor-default disabled:text-violet-300 disabled:hover:bg-transparent"
         >
-          Add
+          {isSaved ? 'Saved' : 'Add'}
+        </button>
+      )}
+      {onRemove && (
+        <button
+          type="button"
+          onClick={() => onRemove(track)}
+          className="shrink-0 rounded-lg p-2 text-zinc-400 hover:bg-white/10 hover:text-red-400"
+          aria-label="Remove from library"
+        >
+          <Trash2 className="h-4 w-4" />
         </button>
       )}
     </div>
