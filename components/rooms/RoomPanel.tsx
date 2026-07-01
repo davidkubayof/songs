@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { Copy, Radio } from 'lucide-react';
 
@@ -33,6 +34,22 @@ export function RoomPanel() {
           icon={Radio}
           title="Sign in required"
           description="Create or join a listening room with friends in real time."
+          action={
+            <div className="flex flex-col gap-2">
+              <Link
+                href="/auth/login"
+                className="text-sm font-medium text-violet-300 hover:underline"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/auth/signup"
+                className="text-sm text-zinc-400 hover:underline"
+              >
+                Create Account
+              </Link>
+            </div>
+          }
         />
       </GlassPanel>
     );

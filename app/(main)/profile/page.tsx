@@ -38,12 +38,20 @@ export default function ProfilePage() {
         <GlassPanel className="p-6 text-center text-sm">
           <User className="mx-auto mb-3 h-10 w-10 text-zinc-500" />
           <p className="text-zinc-400">You are browsing as a guest</p>
-          <Link
-            href="/auth/login"
-            className="mt-4 inline-block text-sm font-medium text-violet-300 hover:underline"
-          >
-            Sign In
-          </Link>
+          <div className="mt-4 flex flex-col gap-2">
+            <Link
+              href="/auth/login"
+              className="rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-400"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/auth/signup"
+              className="rounded-xl border border-white/10 px-4 py-2.5 text-sm hover:bg-white/5"
+            >
+              Create Account
+            </Link>
+          </div>
         </GlassPanel>
       </div>
     );

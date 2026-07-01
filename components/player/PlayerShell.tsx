@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { PlayerErrorBoundary } from '@/components/player/PlayerErrorBoundary';
 import { useMediaSession } from '@/hooks/useMediaSession';
@@ -19,16 +19,37 @@ export function PlayerShell() {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const volume = usePlayerStore((s) => s.volume);
   const seekTarget = usePlayerStore((s) => s.seekTarget);
+  const playerReady = usePlayerStore((s) => s.playerReady);
   const skipOnError = usePlayerStore((s) => s.skipOnError);
   const playNext = usePlayerStore((s) => s.playNext);
   const setPosition = usePlayerStore((s) => s.setPosition);
   const clearSeekTarget = usePlayerStore((s) => s.clearSeekTarget);
+  const setPlayerReady = usePlayerStore((s) => s.setPlayerReady);
+  const setPlayerDuration = usePlayerStore((s) => s.setPlayerDuration);
+
+  const applyPendingSeek = useCallback(() => {
+    const target = usePlayerStore.getState().seekTarget;
+    if (target == null || !playerRef.current) return;
+    playerRef.current.currentTime = target;
+    clearSeekTarget();
+  }, [clearSeekTarget]);
 
   useEffect(() => {
-    if (seekTarget == null || !playerRef.current) return;
-    playerRef.current.currentTime = seekTarget;
-    clearSeekTarget();
-  }, [seekTarget, clearSeekTarget]);
+    if (seekTarget == null || !playerReady) return;
+    applyPendingSeek();
+  }, [seekTarget, playerReady, applyPendingSeek]);
+
+  const handleReady = () => {
+    setPlayerReady(true);
+    applyPendingSeek();
+  };
+
+  const handleDurationChange = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const duration = e.currentTarget.duration;
+    if (Number.isFinite(duration) && duration > 0) {
+      setPlayerDuration(duration);
+    }
+  };
 
   if (!currentTrack) return null;
 
@@ -43,6 +64,8 @@ export function PlayerShell() {
           width={0}
           height={0}
           playsInline
+          onReady={handleReady}
+          onDurationChange={handleDurationChange}
           onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
           onError={() => skipOnError()}
           onEnded={() => playNext()}

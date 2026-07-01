@@ -59,6 +59,9 @@ export function LoginForm() {
         <Link href="/auth/forgot-password" className="text-center text-xs text-zinc-400">
           Forgot password?
         </Link>
+        <Link href="/auth/signup" className="text-center text-xs text-zinc-400">
+          Don&apos;t have an account? Sign up
+        </Link>
       </form>
     </GlassPanel>
   );
