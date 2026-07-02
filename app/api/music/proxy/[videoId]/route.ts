@@ -5,6 +5,13 @@ import { isValidVideoId, resolveAudioStreamUrl } from '@/services/YoutubeStreamS
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const YOUTUBE_UPSTREAM_HEADERS: HeadersInit = {
+  Referer: 'https://www.youtube.com/',
+  Origin: 'https://www.youtube.com',
+  'User-Agent':
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ videoId: string }> },
@@ -18,7 +25,9 @@ export async function GET(
   try {
     const { url, mimeType } = await resolveAudioStreamUrl(videoId);
 
-    const upstreamHeaders: HeadersInit = {};
+    const upstreamHeaders: Record<string, string> = {
+      ...(YOUTUBE_UPSTREAM_HEADERS as Record<string, string>),
+    };
     const range = request.headers.get('range');
     if (range) {
       upstreamHeaders['Range'] = range;

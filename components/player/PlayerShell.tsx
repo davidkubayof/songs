@@ -7,8 +7,7 @@ import { PlayerErrorBoundary } from '@/components/player/PlayerErrorBoundary';
 import { useBackgroundAudio } from '@/hooks/useBackgroundAudio';
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { usePrefetchNext } from '@/hooks/usePrefetchNext';
-import { fetchWithRetry } from '@/lib/fetchWithRetry';
-import { getAudioProxyUrl, getStreamResolveEndpoint } from '@/lib/getAudioStreamUrl';
+import { getAudioProxyUrl } from '@/lib/getAudioStreamUrl';
 import { isIos } from '@/lib/isIos';
 import { registerPlayerController } from '@/lib/playerController';
 import { isValidVideoId } from '@/lib/youtubeVideoId';
@@ -20,15 +19,16 @@ type PlaybackMode = 'audio' | 'embed';
 
 const SEEK_VERIFY_MS = 300;
 const SEEK_TOLERANCE = 1;
-const MAX_IOS_RETRIES = 3;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 500;
 
 export function PlayerShell() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const playerRef = useRef<HTMLVideoElement>(null);
   const userPausedRef = useRef(false);
-  const useDirectStreamRef = useRef(false);
-  const resolveGenRef = useRef(0);
   const errorCountRef = useRef(0);
+  const pendingResumeRef = useRef(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useMediaSession(audioRef, userPausedRef);
   usePrefetchNext();
@@ -60,8 +60,11 @@ export function PlayerShell() {
 
   playbackModeRef.current = playbackMode;
 
-  useEffect(() => {
-    useDirectStreamRef.current = isIos();
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
   }, []);
 
   const clearSeekVerifyTimer = useCallback(() => {
@@ -83,48 +86,26 @@ export function PlayerShell() {
         : new URL(url, window.location.origin).href;
       if (audio.src !== resolved) {
         audio.src = url;
+        setPlayerReady(false);
       }
     } else {
       audio.removeAttribute('src');
       audio.load();
+      setPlayerReady(false);
     }
     setAudioSrc(url);
-  }, []);
-
-  const resolveStreamUrl = useCallback(
-    async (sourceId: string, cacheBust: number): Promise<string | null> => {
-      if (useDirectStreamRef.current) {
-        const endpoint = getStreamResolveEndpoint(sourceId, cacheBust);
-        const res = await fetchWithRetry(endpoint);
-        if (!res.ok) return null;
-        const data = (await res.json()) as { url?: string };
-        return data.url?.startsWith('https://') ? data.url : null;
-      }
-      return getAudioProxyUrl(sourceId, cacheBust);
-    },
-    [],
-  );
+  }, [setPlayerReady]);
 
   const playAudioFromGesture = useCallback(
     (sourceId?: string) => {
       const audio = audioRef.current;
-      if (!audio) return;
+      if (!audio || !sourceId || !isValidVideoId(sourceId)) return;
       userPausedRef.current = false;
-
-      if (useDirectStreamRef.current && sourceId && isValidVideoId(sourceId)) {
-        resolveStreamUrl(sourceId, retryKeyRef.current)
-          .then((url) => {
-            if (!url) return;
-            applyAudioSrc(url);
-            return audio.play();
-          })
-          .catch(() => {});
-        return;
-      }
-
+      const url = getAudioProxyUrl(sourceId, retryKeyRef.current);
+      applyAudioSrc(url);
       audio.play().catch(() => {});
     },
-    [applyAudioSrc, resolveStreamUrl],
+    [applyAudioSrc],
   );
 
   const fallbackToEmbed = useCallback(() => {
@@ -205,16 +186,29 @@ export function PlayerShell() {
     confirmSeek();
   }, [confirmSeek]);
 
+  const tryResumeAfterLoad = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const shouldPlay =
+      pendingResumeRef.current || usePlayerStore.getState().isPlaying;
+    if (!shouldPlay || !audio.paused) return;
+    pendingResumeRef.current = false;
+    usePlayerStore.setState({ isPlaying: true });
+    audio.play().catch(() => {});
+  }, []);
+
   useEffect(() => {
     errorCountRef.current = 0;
+    pendingResumeRef.current = false;
     setRetryKey(0);
     setPlaybackMode('audio');
     setPlayerReady(false);
     setAudioSrc(null);
     clearSeekVerifyTimer();
+    clearRetryTimer();
     pendingSeekRef.current = null;
     seekFailCountRef.current = 0;
-  }, [playEpoch, setPlayerReady, clearSeekVerifyTimer]);
+  }, [playEpoch, setPlayerReady, clearSeekVerifyTimer, clearRetryTimer]);
 
   useEffect(() => {
     if (!currentTrack || playbackMode !== 'audio') return;
@@ -222,46 +216,15 @@ export function PlayerShell() {
       skipOnError();
       return;
     }
-
-    const gen = ++resolveGenRef.current;
-    let cancelled = false;
-
-    (async () => {
-      const url = await resolveStreamUrl(currentTrack.sourceId, retryKey);
-      if (cancelled || gen !== resolveGenRef.current) return;
-      if (!url) {
-        errorCountRef.current += 1;
-        if (errorCountRef.current < MAX_IOS_RETRIES) {
-          setRetryKey((k) => k + 1);
-        } else if (isIos()) {
-          usePlayerStore.setState({ isPlaying: false });
-        } else {
-          fallbackToEmbed();
-        }
-        return;
-      }
-      applyAudioSrc(url);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    currentTrack,
-    retryKey,
-    playbackMode,
-    playEpoch,
-    skipOnError,
-    resolveStreamUrl,
-    applyAudioSrc,
-    fallbackToEmbed,
-  ]);
+    applyAudioSrc(getAudioProxyUrl(currentTrack.sourceId, retryKey));
+  }, [currentTrack, retryKey, playbackMode, playEpoch, skipOnError, applyAudioSrc]);
 
   useEffect(() => {
     registerPlayerController({
       playFromGesture: playAudioFromGesture,
       pauseFromUser: () => {
         userPausedRef.current = true;
+        pendingResumeRef.current = false;
         pause();
         audioRef.current?.pause();
       },
@@ -283,7 +246,7 @@ export function PlayerShell() {
   useEffect(() => {
     if (playbackMode === 'embed') return;
     const audio = audioRef.current;
-    if (!audio || !audioSrc) return;
+    if (!audio || !audioSrc || !playerReady) return;
     if (isPlaying) {
       userPausedRef.current = false;
       audio.play().catch(() => {});
@@ -305,7 +268,13 @@ export function PlayerShell() {
     }
   }, [isPlaying, volume, playbackMode, currentTrack?.id, playerReady]);
 
-  useEffect(() => () => clearSeekVerifyTimer(), [clearSeekVerifyTimer]);
+  useEffect(
+    () => () => {
+      clearSeekVerifyTimer();
+      clearRetryTimer();
+    },
+    [clearSeekVerifyTimer, clearRetryTimer],
+  );
 
   const handleLoadedMetadata = () => {
     setPlayerReady(true);
@@ -315,6 +284,14 @@ export function PlayerShell() {
       setPlayerDuration(duration);
     }
     applyPendingSeek();
+    tryResumeAfterLoad();
+  };
+
+  const handleCanPlay = () => {
+    if (!usePlayerStore.getState().playerReady) {
+      setPlayerReady(true);
+    }
+    tryResumeAfterLoad();
   };
 
   const handleReady = () => {
@@ -330,17 +307,27 @@ export function PlayerShell() {
   };
 
   const handleAudioError = () => {
+    const wantedPlay = usePlayerStore.getState().isPlaying;
     setPlayerReady(false);
+    usePlayerStore.setState({ isPlaying: false });
+
+    if (wantedPlay) {
+      pendingResumeRef.current = true;
+    }
+
     errorCountRef.current += 1;
-    if (errorCountRef.current < MAX_IOS_RETRIES) {
+    if (errorCountRef.current >= MAX_RETRIES) {
+      pendingResumeRef.current = false;
+      if (isIos()) return;
+      fallbackToEmbed();
+      return;
+    }
+
+    clearRetryTimer();
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
       setRetryKey((k) => k + 1);
-      return;
-    }
-    if (isIos()) {
-      usePlayerStore.setState({ isPlaying: false });
-      return;
-    }
-    fallbackToEmbed();
+    }, RETRY_DELAY_MS);
   };
 
   if (playbackMode === 'embed' && currentTrack) {
@@ -375,6 +362,7 @@ export function PlayerShell() {
         playsInline
         className="sr-only"
         onLoadedMetadata={handleLoadedMetadata}
+        onCanPlay={handleCanPlay}
         onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
         onDurationChange={handleDurationChange}
         onSeeked={handleSeeked}
