@@ -1,7 +1,5 @@
 import 'server-only';
 
-import type { Innertube } from 'youtubei.js';
-
 import { isValidVideoId } from '@/lib/youtubeVideoId';
 import { getInnertube } from '@/services/YoutubeInnertubeClient';
 import { withRetry } from '@/services/retry';
@@ -9,8 +7,6 @@ import { withRetry } from '@/services/retry';
 export { isValidVideoId };
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const STREAM_CLIENTS = ['WEB', 'MWEB', 'ANDROID', 'IOS'] as const;
-const PREFERRED_ITAGS = [140, 139, 141] as const;
 
 type CachedStream = {
   url: string;
@@ -48,55 +44,6 @@ function withCpn(baseUrl: string, cpn: string): string {
   return url.toString();
 }
 
-function isIosCompatibleFormat(format: { mime_type?: string; itag: number }): boolean {
-  const mime = (format.mime_type ?? '').toLowerCase();
-  if (mime.includes('mp4') || mime.includes('m4a')) return true;
-  return PREFERRED_ITAGS.includes(format.itag as (typeof PREFERRED_ITAGS)[number]);
-}
-
-function pickFormat(info: Awaited<ReturnType<Innertube['getBasicInfo']>>) {
-  for (const itag of PREFERRED_ITAGS) {
-    try {
-      const format = info.chooseFormat({ itag });
-      if (format && isIosCompatibleFormat(format)) return format;
-    } catch {
-      continue;
-    }
-  }
-
-  const strategies = [
-    { type: 'audio' as const, codec: 'mp4a', quality: 'best' },
-    { type: 'audio' as const, quality: 'best', format: 'mp4' },
-  ];
-
-  for (const options of strategies) {
-    try {
-      const format = info.chooseFormat(options);
-      if (format && isIosCompatibleFormat(format)) return format;
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
-
-async function resolveFromClient(
-  yt: Innertube,
-  videoId: string,
-  client: (typeof STREAM_CLIENTS)[number],
-): Promise<{ url: string; mimeType: string } | null> {
-  const info = await withRetry(() => yt.getBasicInfo(videoId, { client }));
-  const format = pickFormat(info);
-  if (!format) return null;
-
-  const deciphered = await format.decipher(yt.session.player);
-  if (!deciphered?.startsWith('https://')) return null;
-
-  const url = withCpn(deciphered, info.cpn);
-  return { url, mimeType: format.mime_type ?? 'audio/mp4' };
-}
-
 export async function resolveAudioStreamUrl(videoId: string): Promise<{
   url: string;
   mimeType: string;
@@ -107,18 +54,15 @@ export async function resolveAudioStreamUrl(videoId: string): Promise<{
   }
 
   const yt = await getInnertube();
-  let lastError: unknown;
+  const info = await withRetry(() => yt.getBasicInfo(videoId, { client: 'IOS' }));
+  const format = info.chooseFormat({ type: 'audio', quality: 'best' });
+  if (!format) throw new Error('No audio format');
 
-  for (const client of STREAM_CLIENTS) {
-    try {
-      const resolved = await resolveFromClient(yt, videoId, client);
-      if (!resolved) continue;
-      setCache(videoId, resolved.url, resolved.mimeType);
-      return resolved;
-    } catch (error) {
-      lastError = error;
-    }
-  }
+  const deciphered = await format.decipher(yt.session.player);
+  if (!deciphered?.startsWith('https://')) throw new Error('Invalid stream url');
 
-  throw lastError ?? new Error('No audio format');
+  const url = withCpn(deciphered, info.cpn);
+  const mimeType = format.mime_type ?? 'audio/mp4';
+  setCache(videoId, url, mimeType);
+  return { url, mimeType };
 }
