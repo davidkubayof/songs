@@ -2,10 +2,13 @@ import {
   RETRY_BASE_DELAY_MS,
   RETRY_MAX_ATTEMPTS,
 } from '@/constants/music';
+import { logPlayback } from '@/lib/logger/server';
 
 interface RetryOptions {
   maxAttempts?: number;
   baseDelayMs?: number;
+  traceId?: string;
+  domain?: string;
 }
 
 function isRetryable(error: unknown): boolean {
@@ -38,7 +41,36 @@ export async function withRetry<T>(
       return await fn();
     } catch (error) {
       lastError = error;
-      if (!isRetryable(error) || attempt === maxAttempts) break;
+      const err = error instanceof Error ? error.message : String(error);
+      if (!isRetryable(error) || attempt === maxAttempts) {
+        if (attempt === maxAttempts) {
+          logPlayback({
+            level: 'error',
+            domain: 'playback.resolve',
+            event: 'retry_exhausted',
+            traceId: options.traceId,
+            meta: {
+              attempt,
+              maxAttempts,
+              context: options.domain ?? 'retry',
+            },
+            err,
+          });
+        }
+        break;
+      }
+      logPlayback({
+        level: 'warn',
+        domain: 'playback.resolve',
+        event: 'retry_attempt',
+        traceId: options.traceId,
+        meta: {
+          attempt,
+          maxAttempts,
+          context: options.domain ?? 'retry',
+        },
+        err,
+      });
       await delay(baseDelayMs * 2 ** (attempt - 1));
     }
   }

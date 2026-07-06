@@ -2,6 +2,8 @@
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
+import { clientLog } from '@/lib/logger/client';
+
 interface Props {
   children: ReactNode;
   onError: () => void;
@@ -19,7 +21,12 @@ export class PlayerErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('Player error:', error.message, info.componentStack);
+    clientLog({
+      level: 'error',
+      event: 'player_boundary_error',
+      err: error.message,
+      meta: { componentStack: info.componentStack?.slice(0, 200) ?? null },
+    });
     this.props.onError();
   }
 

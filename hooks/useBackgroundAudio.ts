@@ -2,6 +2,7 @@
 
 import { useEffect, type RefObject } from 'react';
 
+import { clientLog } from '@/lib/logger/client';
 import { usePlayerStore } from '@/store/usePlayerStore';
 
 const STALL_RETRY_MS = 500;
@@ -21,7 +22,19 @@ export function useBackgroundAudio(
       const el = audioRef.current;
       if (!el || !usePlayerStore.getState().isPlaying) return;
       if (el.paused) {
-        el.play().catch(() => {});
+        el.play().then(() => {
+          clientLog({
+            level: 'info',
+            event: 'background_resume',
+            meta: { hidden: true },
+          });
+        }).catch((err) => {
+          clientLog({
+            level: 'warn',
+            event: 'background_pause_blocked',
+            err: err instanceof Error ? err.message : String(err),
+          });
+        });
       }
     };
 
@@ -29,12 +42,22 @@ export function useBackgroundAudio(
       if (!document.hidden) return;
       if (userPausedRef.current) return;
       if (!usePlayerStore.getState().isPlaying) return;
-      audioRef.current?.play().catch(() => {});
+      audioRef.current?.play().catch((err) => {
+        clientLog({
+          level: 'warn',
+          event: 'background_pause_blocked',
+          err: err instanceof Error ? err.message : String(err),
+        });
+      });
     };
 
     let stallTimer: ReturnType<typeof setTimeout> | null = null;
     const handleStall = () => {
       if (!document.hidden) return;
+      clientLog({
+        level: 'warn',
+        event: 'background_stall',
+      });
       if (stallTimer) clearTimeout(stallTimer);
       stallTimer = setTimeout(resumeIfNeeded, STALL_RETRY_MS);
     };

@@ -8,6 +8,12 @@ import { useBackgroundAudio } from '@/hooks/useBackgroundAudio';
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { usePrefetchNext } from '@/hooks/usePrefetchNext';
 import { getAudioProxyUrl } from '@/lib/getAudioStreamUrl';
+import {
+  clientLog,
+  createClientTraceId,
+  sendDiagnosticReport,
+  setTraceId,
+} from '@/lib/logger/client';
 import { registerPlayerController } from '@/lib/playerController';
 import { isValidVideoId } from '@/lib/youtubeVideoId';
 import { usePlayerStore } from '@/store/usePlayerStore';
@@ -76,6 +82,15 @@ export function PlayerShell() {
 
   const applyAudioSrc = useCallback((url: string | null) => {
     const audio = audioRef.current;
+    if (url) {
+      clientLog({
+        level: 'info',
+        event: 'audio_src_set',
+        videoId: currentTrack?.sourceId,
+        trackId: currentTrack?.id,
+        meta: { proxyPath: url },
+      });
+    }
     if (!audio) {
       setAudioSrc(url);
       return;
@@ -95,16 +110,33 @@ export function PlayerShell() {
       setPlayerReady(false);
     }
     setAudioSrc(url);
-  }, [setPlayerReady]);
+  }, [setPlayerReady, currentTrack?.id, currentTrack?.sourceId]);
 
   const playAudioFromGesture = useCallback(
     (sourceId?: string) => {
       const audio = audioRef.current;
       if (!audio || !sourceId || !isValidVideoId(sourceId)) return;
       userPausedRef.current = false;
+      const traceId = createClientTraceId();
+      setTraceId(traceId);
       const url = getAudioProxyUrl(sourceId, retryKeyRef.current);
       applyAudioSrc(url);
-      audio.play().catch(() => {});
+      audio.play().then(() => {
+        clientLog({
+          level: 'info',
+          event: 'audio_playing',
+          videoId: sourceId,
+          traceId,
+        });
+      }).catch((err) => {
+        clientLog({
+          level: 'warn',
+          event: 'audio_play_failed',
+          videoId: sourceId,
+          traceId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      });
     },
     [applyAudioSrc],
   );
@@ -208,6 +240,16 @@ export function PlayerShell() {
       skipOnError();
       return;
     }
+    const traceId = createClientTraceId();
+    setTraceId(traceId);
+    clientLog({
+      level: 'info',
+      event: 'play_start',
+      traceId,
+      videoId: currentTrack.sourceId,
+      trackId: currentTrack.id,
+      meta: { retryKey },
+    });
     applyAudioSrc(getAudioProxyUrl(currentTrack.sourceId, retryKey));
   }, [currentTrack, retryKey, playbackMode, playEpoch, skipOnError, applyAudioSrc]);
 
@@ -241,12 +283,26 @@ export function PlayerShell() {
     if (!audio || !audioSrc || !playerReady) return;
     if (isPlaying) {
       userPausedRef.current = false;
-      audio.play().catch(() => {});
+      audio.play().then(() => {
+        clientLog({
+          level: 'info',
+          event: 'audio_playing',
+          videoId: currentTrack?.sourceId,
+          trackId: currentTrack?.id,
+        });
+      }).catch((err) => {
+        clientLog({
+          level: 'warn',
+          event: 'audio_play_failed',
+          videoId: currentTrack?.sourceId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      });
     } else {
       userPausedRef.current = true;
       audio.pause();
     }
-  }, [isPlaying, audioSrc, playerReady, playbackMode]);
+  }, [isPlaying, audioSrc, playerReady, playbackMode, currentTrack?.id, currentTrack?.sourceId]);
 
   useEffect(() => {
     if (playbackMode !== 'embed') return;
@@ -272,7 +328,18 @@ export function PlayerShell() {
     setPlayerReady(true);
     errorCountRef.current = 0;
     setPlaybackError(null);
-    const duration = audioRef.current?.duration ?? 0;
+    const audio = audioRef.current;
+    const duration = audio?.duration ?? 0;
+    clientLog({
+      level: 'info',
+      event: 'audio_loaded',
+      videoId: currentTrack?.sourceId,
+      trackId: currentTrack?.id,
+      meta: {
+        duration: Number.isFinite(duration) ? duration : 0,
+        readyState: audio?.readyState ?? -1,
+      },
+    });
     if (Number.isFinite(duration) && duration > 0) {
       setPlayerDuration(duration);
     }
@@ -301,6 +368,24 @@ export function PlayerShell() {
 
   const handleAudioError = () => {
     setPlayerReady(false);
+    const audio = audioRef.current;
+    const mediaError = audio?.error;
+
+    clientLog({
+      level: 'error',
+      event: 'audio_error',
+      videoId: currentTrack?.sourceId,
+      trackId: currentTrack?.id,
+      meta: {
+        mediaErrorCode: mediaError?.code ?? -1,
+        networkState: audio?.networkState ?? -1,
+        readyState: audio?.readyState ?? -1,
+        retryCount: errorCountRef.current + 1,
+      },
+      err: mediaError
+        ? ['', 'MEDIA_ERR_ABORTED', 'MEDIA_ERR_NETWORK', 'MEDIA_ERR_DECODE', 'MEDIA_ERR_SRC_NOT_SUPPORTED'][mediaError.code] ?? 'unknown'
+        : 'unknown',
+    });
 
     if (usePlayerStore.getState().isPlaying) {
       pendingResumeRef.current = true;
@@ -310,9 +395,24 @@ export function PlayerShell() {
     if (errorCountRef.current >= MAX_RETRIES) {
       pendingResumeRef.current = false;
       setPlaybackError('לא ניתן לנגן');
+      clientLog({
+        level: 'error',
+        event: 'audio_give_up',
+        videoId: currentTrack?.sourceId,
+        trackId: currentTrack?.id,
+        meta: { retryCount: errorCountRef.current },
+      });
+      void sendDiagnosticReport();
       skipOnError();
       return;
     }
+
+    clientLog({
+      level: 'warn',
+      event: 'audio_retry',
+      videoId: currentTrack?.sourceId,
+      meta: { attempt: errorCountRef.current },
+    });
 
     clearRetryTimer();
     retryTimerRef.current = setTimeout(() => {

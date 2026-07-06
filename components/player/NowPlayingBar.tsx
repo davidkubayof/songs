@@ -1,13 +1,28 @@
 'use client';
 
-import { Pause, Play, SkipBack, SkipForward, Volume2 } from 'lucide-react';
+import { Pause, Play, SkipBack, SkipForward, Volume2, ClipboardCopy } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { PlayerProgressBar } from '@/components/player/PlayerProgressBar';
 import { PLACEHOLDER_THUMBNAIL } from '@/constants/music';
 import { useTogglePlay } from '@/hooks/useTogglePlay';
+import {
+  getDiagnosticReport,
+  sendDiagnosticReport,
+} from '@/lib/logger/client';
 import { usePlayerStore } from '@/store/usePlayerStore';
+
+const diagEnabled = process.env.NEXT_PUBLIC_DIAG_ENABLED === 'true';
+
+async function copyDiagnostic() {
+  const report = getDiagnosticReport();
+  try {
+    await navigator.clipboard.writeText(report);
+  } catch {
+  }
+  void sendDiagnosticReport();
+}
 
 export function NowPlayingBar() {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
@@ -46,6 +61,16 @@ export function NowPlayingBar() {
               <p className="truncate text-xs text-zinc-400">{currentTrack.artist}</p>
               {playbackError && (
                 <p className="truncate text-xs text-red-400">{playbackError}</p>
+              )}
+              {diagEnabled && playbackError && (
+                <button
+                  type="button"
+                  onClick={() => void copyDiagnostic()}
+                  className="mt-1 flex items-center gap-1 text-xs text-zinc-400 hover:text-white"
+                >
+                  <ClipboardCopy className="h-3 w-3" />
+                  העתק אבחון
+                </button>
               )}
             </div>
             <div className="flex items-center gap-1">
