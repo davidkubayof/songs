@@ -3,15 +3,21 @@ import 'server-only';
 import { Innertube, UniversalCache } from 'youtubei.js';
 
 import {
-  getPoTokenSession,
+  getSessionPoToken,
   invalidatePoTokenSession,
 } from '@/services/YoutubePoTokenService';
 
 let client: Innertube | null = null;
 let clientSessionKey: string | null = null;
 
-export async function getInnertube(): Promise<Innertube> {
-  const session = await getPoTokenSession();
+export async function getInnertube(
+  forceRefresh = false,
+  allowColdStart = false,
+): Promise<Innertube> {
+  if (forceRefresh) {
+    resetInnertubeClient();
+  }
+  const session = await getSessionPoToken(forceRefresh, allowColdStart);
   const key = `${session.visitorData}:${session.poToken}`;
   if (client && clientSessionKey === key) return client;
 

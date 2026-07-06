@@ -8,6 +8,7 @@ export function redactStreamUrl(url: string): RedactedStreamMeta {
       itag: parsed.searchParams.get('itag'),
       client: parsed.searchParams.get('c'),
       hasCpn: parsed.searchParams.has('cpn'),
+      hasPot: parsed.searchParams.has('pot'),
       hasRange: parsed.searchParams.has('range'),
       expire: parsed.searchParams.get('expire'),
     };
@@ -17,6 +18,7 @@ export function redactStreamUrl(url: string): RedactedStreamMeta {
       itag: null,
       client: null,
       hasCpn: false,
+      hasPot: false,
       hasRange: false,
       expire: null,
     };

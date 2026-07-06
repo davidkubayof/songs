@@ -25,6 +25,7 @@ export interface RedactedStreamMeta {
   itag: string | null;
   client: string | null;
   hasCpn: boolean;
+  hasPot: boolean;
   hasRange: boolean;
   expire: string | null;
 }

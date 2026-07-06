@@ -44,6 +44,15 @@ export async function POST(request: NextRequest) {
   }
 
   const entries = Array.isArray(body.entries) ? body.entries.slice(-100) : [];
+  const errorCount = entries.filter((e) => e.level === 'error').length;
+  const warnCount = entries.filter((e) => e.level === 'warn').length;
+  const traceIds = [
+    ...new Set(
+      entries
+        .map((e) => e.traceId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ].slice(0, 5);
 
   logPlayback({
     level: 'info',
@@ -52,26 +61,15 @@ export async function POST(request: NextRequest) {
     traceId: body.traceId,
     meta: {
       entryCount: entries.length,
+      errorCount,
+      warnCount,
+      traceIds: traceIds.join(','),
       isPwa: body.isPwa ?? false,
       isIos: body.isIos ?? false,
       userAgent: body.userAgent?.slice(0, 80) ?? null,
       ip,
     },
   });
-
-  for (const entry of entries) {
-    logPlayback({
-      level: entry.level ?? 'info',
-      domain: 'playback.diag',
-      event: entry.event ?? 'client_entry',
-      traceId: entry.traceId ?? body.traceId,
-      videoId: entry.videoId,
-      trackId: entry.trackId,
-      durationMs: entry.durationMs,
-      meta: entry.meta,
-      err: entry.err,
-    });
-  }
 
   return NextResponse.json({ ok: true });
 }

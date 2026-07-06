@@ -25,7 +25,7 @@ type PlaybackMode = 'audio' | 'embed';
 const SEEK_VERIFY_MS = 300;
 const SEEK_TOLERANCE = 1;
 const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 500;
+const RETRY_DELAY_MS = 1500;
 
 export function PlayerShell() {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -62,6 +62,7 @@ export function PlayerShell() {
   const seekVerifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekFailCountRef = useRef(0);
   const pendingSeekRef = useRef<number | null>(null);
+  const errorSrcRef = useRef<string | null>(null);
   const playbackModeRef = useRef<PlaybackMode>('audio');
 
   playbackModeRef.current = playbackMode;
@@ -103,6 +104,7 @@ export function PlayerShell() {
         audio.src = url;
         audio.load();
         setPlayerReady(false);
+        errorSrcRef.current = resolved;
       }
     } else {
       audio.removeAttribute('src');
@@ -369,6 +371,9 @@ export function PlayerShell() {
   const handleAudioError = () => {
     setPlayerReady(false);
     const audio = audioRef.current;
+    if (audio?.src && errorSrcRef.current && audio.src !== errorSrcRef.current) {
+      return;
+    }
     const mediaError = audio?.error;
 
     clientLog({

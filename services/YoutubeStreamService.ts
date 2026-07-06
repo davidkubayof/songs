@@ -9,8 +9,15 @@ import {
   getInnertube,
   resetInnertubeSession,
 } from '@/services/YoutubeInnertubeClient';
-import { getPoTokenSession } from '@/services/YoutubePoTokenService';
+import { getVideoPoToken } from '@/services/YoutubePoTokenService';
 import { isNoStreamingDataError } from '@/services/retry';
+
+function isClientFallbackError(error: unknown): boolean {
+  if (isNoStreamingDataError(error)) return true;
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return msg.includes('no valid url to decipher') || msg.includes('no audio format');
+}
 
 export { isValidVideoId };
 
@@ -35,7 +42,13 @@ type CachedStream = {
 
 const streamCache = new Map<string, CachedStream>();
 
-function getCached(videoId: string): CachedStream | null {
+type ResolveOptions = {
+  forceRefresh?: boolean;
+  traceId?: string;
+};
+
+function getCached(videoId: string, forceRefresh?: boolean): CachedStream | null {
+  if (forceRefresh) return null;
   const entry = streamCache.get(videoId);
   if (!entry) return null;
   if (Date.now() >= entry.expiresAt) {
@@ -65,7 +78,7 @@ export function invalidateStreamCache(
   traceId?: string,
 ): void {
   streamCache.delete(videoId);
-  if (reason === 'resolve_error') {
+  if (reason === 'resolve_error' || reason === 'upstream_403') {
     resetInnertubeSession();
   }
   logPlayback({
@@ -97,15 +110,16 @@ async function resolveWithClient(
   yt: Innertube,
   videoId: string,
   client: ResolveClient,
-  poToken: string,
   traceId?: string,
+  poOptions?: { forceRefresh?: boolean; allowColdStart?: boolean },
 ): Promise<{
   url: string;
   mimeType: string;
   itag: number;
   innertubeClient: ResolveClient;
 }> {
-  const info = await yt.getBasicInfo(videoId, { client, po_token: poToken });
+  const videoPo = await getVideoPoToken(videoId, poOptions ?? {});
+  const info = await yt.getBasicInfo(videoId, { client, po_token: videoPo });
 
   if (!info.streaming_data) {
     logPlayback({
@@ -134,6 +148,7 @@ async function resolveWithClient(
 async function resolveWithClientFallback(
   videoId: string,
   traceId?: string,
+  forceRefresh = false,
 ): Promise<{
   url: string;
   mimeType: string;
@@ -143,19 +158,31 @@ async function resolveWithClientFallback(
   let lastError: unknown;
 
   for (let pass = 0; pass < 2; pass++) {
-    if (pass > 0) {
+    const isRetryPass = pass > 0 || forceRefresh;
+    const allowColdStart = isRetryPass;
+
+    if (isRetryPass) {
       resetInnertubeSession();
     }
-    const session = await getPoTokenSession(pass > 0);
-    const yt = await getInnertube();
 
-    for (const client of RESOLVE_CLIENTS) {
-      try {
-        return await resolveWithClient(yt, videoId, client, session.poToken, traceId);
-      } catch (error) {
-        lastError = error;
-        if (!isNoStreamingDataError(error)) throw error;
+    try {
+      const yt = await getInnertube(isRetryPass, allowColdStart);
+
+      for (const client of RESOLVE_CLIENTS) {
+        try {
+          return await resolveWithClient(yt, videoId, client, traceId, {
+            forceRefresh: isRetryPass,
+            allowColdStart,
+          });
+        } catch (error) {
+          lastError = error;
+          if (!isClientFallbackError(error)) throw error;
+        }
       }
+    } catch (error) {
+      lastError = error;
+      if (pass === 0) continue;
+      throw error;
     }
   }
 
@@ -165,12 +192,14 @@ async function resolveWithClientFallback(
 export async function resolveAudioStreamUrl(
   videoId: string,
   traceId?: string,
+  options: ResolveOptions = {},
 ): Promise<{
   url: string;
   mimeType: string;
   cacheHit: boolean;
 }> {
-  const cached = getCached(videoId);
+  const { forceRefresh = false } = options;
+  const cached = getCached(videoId, forceRefresh);
   if (cached) {
     logPlayback({
       level: 'info',
@@ -189,12 +218,12 @@ export async function resolveAudioStreamUrl(
     event: 'resolve_start',
     traceId,
     videoId,
-    meta: { cacheHit: false },
+    meta: { cacheHit: false, forceRefresh },
   });
 
   try {
     const { result, durationMs } = await withTiming(() =>
-      resolveWithClientFallback(videoId, traceId),
+      resolveWithClientFallback(videoId, traceId, forceRefresh),
     );
 
     setCache(videoId, result.url, result.mimeType, result.innertubeClient);
@@ -213,6 +242,7 @@ export async function resolveAudioStreamUrl(
         itag: streamMeta.itag ?? result.itag,
         client: streamMeta.client,
         hasCpn: streamMeta.hasCpn,
+        hasPot: streamMeta.hasPot,
         host: streamMeta.host,
         mime: result.mimeType,
       },

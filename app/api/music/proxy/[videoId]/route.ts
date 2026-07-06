@@ -1,4 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
+import { Constants } from 'youtubei.js';
 
 import {
   invalidateStreamCache,
@@ -12,6 +13,17 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const TRACE_HEADER = 'X-Playback-Trace-Id';
+
+async function fetchUpstream(
+  url: string,
+  range: string | null,
+): Promise<Response> {
+  const headers: HeadersInit = { ...Constants.STREAM_HEADERS };
+  if (range) {
+    headers['Range'] = range;
+  }
+  return fetch(url, { headers });
+}
 
 export async function GET(
   request: NextRequest,
@@ -50,35 +62,71 @@ export async function GET(
   let responseStatus = 500;
 
   try {
-    const { result: resolved, durationMs: resolveMs } = await withTiming(() =>
-      resolveAudioStreamUrl(videoId, traceId),
-    );
-    const { url, mimeType, cacheHit } = resolved;
+    let forceRefresh = false;
 
-    const streamMeta = redactStreamUrl(url);
-    logPlayback({
-      level: 'info',
-      domain: 'playback.proxy',
-      event: 'upstream_fetch',
-      traceId,
-      videoId,
-      durationMs: resolveMs,
-      meta: {
-        cacheHit,
-        ...streamMeta,
-      },
-    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { result: resolved, durationMs: resolveMs } = await withTiming(() =>
+        resolveAudioStreamUrl(videoId, traceId, { forceRefresh }),
+      );
+      const { url, mimeType, cacheHit } = resolved;
 
-    const upstreamHeaders: HeadersInit = {};
-    if (range) {
-      upstreamHeaders['Range'] = range;
-    }
+      const streamMeta = redactStreamUrl(url);
+      logPlayback({
+        level: 'info',
+        domain: 'playback.proxy',
+        event: 'upstream_fetch',
+        traceId,
+        videoId,
+        durationMs: resolveMs,
+        meta: {
+          cacheHit,
+          attempt: attempt + 1,
+          ...streamMeta,
+        },
+      });
 
-    const { result: upstream, durationMs: fetchMs } = await withTiming(() =>
-      fetch(url, { headers: upstreamHeaders }),
-    );
+      const { result: upstream, durationMs: fetchMs } = await withTiming(() =>
+        fetchUpstream(url, range),
+      );
 
-    if (!upstream.ok && upstream.status !== 206) {
+      if (upstream.ok || upstream.status === 206) {
+        logPlayback({
+          level: 'info',
+          domain: 'playback.proxy',
+          event: 'upstream_ok',
+          traceId,
+          videoId,
+          durationMs: fetchMs,
+          meta: {
+            upstreamStatus: upstream.status,
+            contentLength: upstream.headers.get('content-length'),
+            cacheHit,
+            resolveMs,
+            attempt: attempt + 1,
+          },
+        });
+
+        responseStatus = upstream.status;
+
+        const responseHeaders = new Headers();
+        responseHeaders.set('Content-Type', mimeType);
+        responseHeaders.set('Accept-Ranges', 'bytes');
+        responseHeaders.set('Cache-Control', 'no-store, no-cache');
+        responseHeaders.set(TRACE_HEADER, traceId);
+
+        const contentLength = upstream.headers.get('content-length');
+        if (contentLength) responseHeaders.set('Content-Length', contentLength);
+
+        const contentRange = upstream.headers.get('content-range');
+        if (contentRange) responseHeaders.set('Content-Range', contentRange);
+
+        return new NextResponse(upstream.body, {
+          status: upstream.status,
+          headers: responseHeaders,
+        });
+      }
+
+      const upstreamStatus = upstream.status;
       logPlayback({
         level: 'error',
         domain: 'playback.proxy',
@@ -88,13 +136,21 @@ export async function GET(
         durationMs: fetchMs,
         meta: {
           ...streamMeta,
-          upstreamStatus: upstream.status,
+          upstreamStatus,
           hasRange: Boolean(range),
           cacheHit,
           resolveMs,
+          attempt: attempt + 1,
         },
         err: upstream.statusText || 'upstream error',
       });
+
+      if (upstreamStatus === 403 && attempt === 0) {
+        invalidateStreamCache(videoId, 'upstream_403', traceId);
+        forceRefresh = true;
+        continue;
+      }
+
       invalidateStreamCache(videoId, 'upstream_failed', traceId);
       responseStatus = 502;
       const errRes = NextResponse.json({ error: 'Stream unavailable' }, { status: 502 });
@@ -102,39 +158,10 @@ export async function GET(
       return errRes;
     }
 
-    logPlayback({
-      level: 'info',
-      domain: 'playback.proxy',
-      event: 'upstream_ok',
-      traceId,
-      videoId,
-      durationMs: fetchMs,
-      meta: {
-        upstreamStatus: upstream.status,
-        contentLength: upstream.headers.get('content-length'),
-        cacheHit,
-        resolveMs,
-      },
-    });
-
-    responseStatus = upstream.status;
-
-    const responseHeaders = new Headers();
-    responseHeaders.set('Content-Type', mimeType);
-    responseHeaders.set('Accept-Ranges', 'bytes');
-    responseHeaders.set('Cache-Control', 'no-store, no-cache');
-    responseHeaders.set(TRACE_HEADER, traceId);
-
-    const contentLength = upstream.headers.get('content-length');
-    if (contentLength) responseHeaders.set('Content-Length', contentLength);
-
-    const contentRange = upstream.headers.get('content-range');
-    if (contentRange) responseHeaders.set('Content-Range', contentRange);
-
-    return new NextResponse(upstream.body, {
-      status: upstream.status,
-      headers: responseHeaders,
-    });
+    responseStatus = 502;
+    const errRes = NextResponse.json({ error: 'Stream unavailable' }, { status: 502 });
+    errRes.headers.set(TRACE_HEADER, traceId);
+    return errRes;
   } catch (error) {
     invalidateStreamCache(videoId, 'resolve_error', traceId);
     const err = error instanceof Error ? error.message : String(error);
