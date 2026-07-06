@@ -11,9 +11,15 @@ interface RetryOptions {
   domain?: string;
 }
 
+export function isNoStreamingDataError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return error.message.toLowerCase().includes('streaming data not available');
+}
+
 function isRetryable(error: unknown): boolean {
   if (!(error instanceof Error)) return true;
   const msg = error.message.toLowerCase();
+  if (isNoStreamingDataError(error)) return false;
   if (msg.includes('400') || msg.includes('401') || msg.includes('404')) {
     return false;
   }
