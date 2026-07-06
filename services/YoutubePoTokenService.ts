@@ -1,9 +1,9 @@
 import 'server-only';
 
 import { BG, buildURL, getHeaders } from 'bgutils-js';
-import type { WebPoSignalOutput } from 'bgutils-js';
+import type { BgConfig, WebPoSignalOutput } from 'bgutils-js';
 import { JSDOM } from 'jsdom';
-import { Innertube, ProtoUtils } from 'youtubei.js';
+import { Innertube } from 'youtubei.js';
 
 import { logPlayback } from '@/lib/logger/server';
 
@@ -12,6 +12,8 @@ type WebPoMinter = InstanceType<typeof BG.WebPoMinter>;
 const PO_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
 const REQUEST_KEY = 'O43z0dpjhgX20SCx4KAo';
 const BOTGUARD_TIMEOUT_MS = 10_000;
+
+export type PoTokenSource = 'env' | 'minted' | 'cold_start';
 
 export type PoTokenSession = {
   poToken: string;
@@ -31,12 +33,40 @@ type MintContext = {
 let mintContext: MintContext | null = null;
 let generationPromise: Promise<MintContext> | null = null;
 let persistentDom: JSDOM | null = null;
-let cachedInterpreterHash: string | null = null;
 
-function getFromEnv(): MintContext | null {
+function ensureDom(): void {
+  if (!persistentDom) {
+    persistentDom = new JSDOM();
+    Object.assign(globalThis, {
+      window: persistentDom.window,
+      document: persistentDom.window.document,
+    });
+  }
+}
+
+async function fetchVisitorData(): Promise<string> {
+  const bootstrap = await Innertube.create({ retrieve_player: false });
+  const visitorData = bootstrap.session.context.client.visitorData;
+  if (!visitorData) throw new Error('Could not get visitor data');
+  return visitorData;
+}
+
+async function getFromEnv(): Promise<MintContext | null> {
   const poToken = process.env.YOUTUBE_PO_TOKEN?.trim();
-  const visitorData = process.env.YOUTUBE_VISITOR_DATA?.trim();
-  if (!poToken || !visitorData) return null;
+  if (!poToken) return null;
+
+  const visitorData =
+    process.env.YOUTUBE_VISITOR_DATA?.trim() || (await fetchVisitorData());
+
+  logPlayback({
+    level: 'info',
+    domain: 'playback.resolve',
+    event: 'po_token_env_override',
+    meta: {
+      hasVisitorDataEnv: Boolean(process.env.YOUTUBE_VISITOR_DATA?.trim()),
+    },
+  });
+
   return {
     visitorData,
     sessionPoToken: poToken,
@@ -47,80 +77,42 @@ function getFromEnv(): MintContext | null {
   };
 }
 
-function visitorIdentifier(visitorData: string): string {
-  try {
-    const decoded = ProtoUtils.decodeVisitorData(visitorData);
-    return decoded.id ?? visitorData;
-  } catch {
-    return visitorData;
-  }
-}
-
-function getPersistentDom(): { dom: JSDOM; globalObj: Record<string, unknown> } {
-  if (!persistentDom) {
-    persistentDom = new JSDOM();
-    Object.assign(globalThis, {
-      window: persistentDom.window,
-      document: persistentDom.window.document,
-    });
-  }
+function createBgConfig(visitorData: string): BgConfig {
+  ensureDom();
   return {
-    dom: persistentDom,
-    globalObj: persistentDom.window as unknown as Record<string, unknown>,
+    fetch: (input, init) => fetch(input, init),
+    globalObj: globalThis,
+    identifier: visitorData,
+    requestKey: REQUEST_KEY,
+    useYouTubeAPI: true,
   };
-}
-
-async function loadInterpreterScript(
-  dom: JSDOM,
-  bgChallenge: NonNullable<
-    Awaited<ReturnType<Innertube['getAttestationChallenge']>>['bg_challenge']
-  >,
-): Promise<void> {
-  const globalObj = dom.window as unknown as Record<string, unknown>;
-  if (
-    cachedInterpreterHash === bgChallenge.interpreter_hash &&
-    globalObj[bgChallenge.global_name]
-  ) {
-    return;
-  }
-
-  const interpreterUrl =
-    bgChallenge.interpreter_url
-      .private_do_not_access_or_else_trusted_resource_url_wrapped_value;
-  if (!interpreterUrl) throw new Error('Could not get interpreter url');
-
-  const bgScriptResponse = await fetch(`https:${interpreterUrl}`);
-  const interpreterJavascript = await bgScriptResponse.text();
-  if (!interpreterJavascript) throw new Error('Could not load VM');
-
-  dom.window.eval(interpreterJavascript);
-
-  if (!globalObj[bgChallenge.global_name]) {
-    throw new Error('VM not found');
-  }
-
-  cachedInterpreterHash = bgChallenge.interpreter_hash;
 }
 
 async function mintWithBotGuard(
   visitorData: string,
-  bgChallenge: NonNullable<
-    Awaited<ReturnType<Innertube['getAttestationChallenge']>>['bg_challenge']
-  >,
 ): Promise<{ sessionPoToken: string; webPoMinter: WebPoMinter }> {
-  const { dom, globalObj } = getPersistentDom();
-  await loadInterpreterScript(dom, bgChallenge);
+  const bgConfig = createBgConfig(visitorData);
+  const globalObj = globalThis as Record<string, unknown>;
+
+  const bgChallenge = await BG.Challenge.create(bgConfig);
+  if (!bgChallenge) throw new Error('Could not get challenge');
+
+  const interpreterJavascript =
+    bgChallenge.interpreterJavascript.privateDoNotAccessOrElseSafeScriptWrappedValue;
+  if (!interpreterJavascript) throw new Error('Could not load VM');
+
+  new Function(interpreterJavascript)();
 
   const botguard = await BG.BotGuardClient.create({
     program: bgChallenge.program,
-    globalName: bgChallenge.global_name,
+    globalName: bgChallenge.globalName,
     globalObj,
   });
 
   const webPoSignalOutput: WebPoSignalOutput = [];
   const botguardResponse = await botguard.snapshot({ webPoSignalOutput }, BOTGUARD_TIMEOUT_MS);
 
-  const integrityResponse = await fetch(buildURL('GenerateIT', false), {
+  const integrityResponse = await fetch(buildURL('GenerateIT', true), {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify([REQUEST_KEY, botguardResponse]),
@@ -141,7 +133,7 @@ async function mintWithBotGuard(
   };
 
   const webPoMinter = await BG.WebPoMinter.create(integrityTokenData, webPoSignalOutput);
-  const sessionPoToken = await webPoMinter.mintAsWebsafeString(visitorIdentifier(visitorData));
+  const sessionPoToken = await webPoMinter.mintAsWebsafeString(visitorData);
 
   return { sessionPoToken, webPoMinter };
 }
@@ -155,7 +147,7 @@ async function createColdStartContext(visitorData: string): Promise<MintContext>
   });
   return {
     visitorData,
-    sessionPoToken: BG.PoToken.generateColdStartToken(visitorIdentifier(visitorData)),
+    sessionPoToken: BG.PoToken.generateColdStartToken(visitorData),
     webPoMinter: null,
     isColdStart: true,
     isEnv: false,
@@ -164,16 +156,10 @@ async function createColdStartContext(visitorData: string): Promise<MintContext>
 }
 
 async function generateMintContext(allowColdStart: boolean): Promise<MintContext> {
-  const bootstrap = await Innertube.create({ retrieve_player: false });
-  const visitorData = bootstrap.session.context.client.visitorData;
-  if (!visitorData) throw new Error('Could not get visitor data');
+  const visitorData = await fetchVisitorData();
 
   try {
-    const challengeResponse = await bootstrap.getAttestationChallenge('ENGAGEMENT_TYPE_UNBOUND');
-    const bgChallenge = challengeResponse.bg_challenge;
-    if (!bgChallenge) throw new Error('Could not get challenge');
-
-    const { sessionPoToken, webPoMinter } = await mintWithBotGuard(visitorData, bgChallenge);
+    const { sessionPoToken, webPoMinter } = await mintWithBotGuard(visitorData);
 
     logPlayback({
       level: 'info',
@@ -208,7 +194,7 @@ async function getMintContext(
   forceRefresh = false,
   allowColdStart = false,
 ): Promise<MintContext> {
-  const fromEnv = getFromEnv();
+  const fromEnv = await getFromEnv();
   if (fromEnv && !forceRefresh) return fromEnv;
 
   if (mintContext && !forceRefresh && Date.now() < mintContext.expiresAt) {
@@ -233,6 +219,13 @@ async function getMintContext(
   return generationPromise;
 }
 
+export function getPoTokenSource(): PoTokenSource {
+  if (process.env.YOUTUBE_PO_TOKEN?.trim()) return 'env';
+  if (!mintContext) return 'minted';
+  if (mintContext.isColdStart) return 'cold_start';
+  return 'minted';
+}
+
 export async function getSessionPoToken(
   forceRefresh = false,
   allowColdStart = false,
@@ -249,16 +242,6 @@ export async function getVideoPoToken(
 
   if (ctx.webPoMinter) {
     return ctx.webPoMinter.mintAsWebsafeString(videoId);
-  }
-
-  if (ctx.isColdStart) {
-    logPlayback({
-      level: 'warn',
-      domain: 'playback.resolve',
-      event: 'po_token_cold_start',
-      videoId,
-      meta: { forVideo: false },
-    });
   }
 
   return ctx.sessionPoToken;
@@ -280,5 +263,4 @@ export function invalidatePoTokenSession(): void {
   if (process.env.YOUTUBE_PO_TOKEN?.trim()) return;
   mintContext = null;
   generationPromise = null;
-  cachedInterpreterHash = null;
 }

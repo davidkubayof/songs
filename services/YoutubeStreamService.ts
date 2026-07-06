@@ -9,7 +9,10 @@ import {
   getInnertube,
   resetInnertubeSession,
 } from '@/services/YoutubeInnertubeClient';
-import { getVideoPoToken } from '@/services/YoutubePoTokenService';
+import {
+  getPoTokenSource,
+  getVideoPoToken,
+} from '@/services/YoutubePoTokenService';
 import { isNoStreamingDataError } from '@/services/retry';
 
 function isClientFallbackError(error: unknown): boolean {
@@ -111,7 +114,7 @@ async function resolveWithClient(
   videoId: string,
   client: ResolveClient,
   traceId?: string,
-  poOptions?: { forceRefresh?: boolean; allowColdStart?: boolean },
+  poOptions?: { forceRefresh?: boolean },
 ): Promise<{
   url: string;
   mimeType: string;
@@ -159,20 +162,18 @@ async function resolveWithClientFallback(
 
   for (let pass = 0; pass < 2; pass++) {
     const isRetryPass = pass > 0 || forceRefresh;
-    const allowColdStart = isRetryPass;
 
     if (isRetryPass) {
       resetInnertubeSession();
     }
 
     try {
-      const yt = await getInnertube(isRetryPass, allowColdStart);
+      const yt = await getInnertube(isRetryPass, false);
 
       for (const client of RESOLVE_CLIENTS) {
         try {
           return await resolveWithClient(yt, videoId, client, traceId, {
             forceRefresh: isRetryPass,
-            allowColdStart,
           });
         } catch (error) {
           lastError = error;
@@ -243,6 +244,7 @@ export async function resolveAudioStreamUrl(
         client: streamMeta.client,
         hasCpn: streamMeta.hasCpn,
         hasPot: streamMeta.hasPot,
+        poTokenSource: getPoTokenSource(),
         host: streamMeta.host,
         mime: result.mimeType,
       },
