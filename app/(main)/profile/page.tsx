@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { LogOut, User } from 'lucide-react';
 
 import { GlassPanel } from '@/components/ui/GlassPanel';
+import { CopyDiagnosticButton, isDiagnosticEnabled } from '@/components/diagnostic/CopyDiagnosticButton';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function ProfilePage() {
@@ -53,6 +54,11 @@ export default function ProfilePage() {
             </Link>
           </div>
         </GlassPanel>
+        {isDiagnosticEnabled && (
+          <GlassPanel className="p-6">
+            <CopyDiagnosticButton className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm text-zinc-400 hover:bg-white/5 hover:text-white" />
+          </GlassPanel>
+        )}
       </div>
     );
   }
@@ -112,6 +118,11 @@ export default function ProfilePage() {
           </button>
         </div>
       </GlassPanel>
+      {isDiagnosticEnabled && (
+        <GlassPanel className="p-6">
+          <CopyDiagnosticButton className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm text-zinc-400 hover:bg-white/5 hover:text-white" />
+        </GlassPanel>
+      )}
       <div className="flex flex-col gap-2">
         {role === 'Admin' && (
           <Link
