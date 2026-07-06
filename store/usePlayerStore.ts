@@ -16,6 +16,7 @@ interface PlayerState {
   playerDuration: number;
   isRemoteUpdate: boolean;
   playEpoch: number;
+  playbackError: string | null;
   playTrack: (track: Track) => void;
   pause: () => void;
   togglePlay: () => void;
@@ -30,6 +31,8 @@ interface PlayerState {
   playNext: () => void;
   playPrevious: () => void;
   skipOnError: () => void;
+  setPlaybackError: (message: string | null) => void;
+  clearPlaybackError: () => void;
   applyRoomPlayback: (playback: RoomPlayback) => void;
   clearRemoteFlag: () => void;
 }
@@ -45,6 +48,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playerDuration: 0,
   isRemoteUpdate: false,
   playEpoch: 0,
+  playbackError: null,
   playTrack: (track) =>
     set((state) => ({
       currentTrack: track,
@@ -53,6 +57,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       seekTarget: null,
       playerReady: false,
       playerDuration: 0,
+      playbackError: null,
       playEpoch: state.playEpoch + 1,
     })),
   pause: () => set({ isPlaying: false }),
@@ -105,7 +110,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
   skipOnError: () => {
-    const { currentTrack } = get();
+    const { currentTrack, playEpoch } = get();
     if (!currentTrack) return;
     const next = findNextTrack(currentTrack, usePlaylistStore.getState().tracks);
     if (next && next.id !== currentTrack.id) {
@@ -116,11 +121,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         seekTarget: null,
         playerReady: false,
         playerDuration: 0,
+        playbackError: null,
+        playEpoch: playEpoch + 1,
       });
       return;
     }
-    set({ currentTrack: null, isPlaying: false, position: 0, seekTarget: null });
+    set({ currentTrack: null, isPlaying: false, position: 0, seekTarget: null, playbackError: null });
   },
+  setPlaybackError: (message) => set({ playbackError: message }),
+  clearPlaybackError: () => set({ playbackError: null }),
   applyRoomPlayback: (playback) => {
     set({
       isRemoteUpdate: true,

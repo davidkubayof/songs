@@ -8,7 +8,6 @@ import { useBackgroundAudio } from '@/hooks/useBackgroundAudio';
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { usePrefetchNext } from '@/hooks/usePrefetchNext';
 import { getAudioProxyUrl } from '@/lib/getAudioStreamUrl';
-import { isIos } from '@/lib/isIos';
 import { registerPlayerController } from '@/lib/playerController';
 import { isValidVideoId } from '@/lib/youtubeVideoId';
 import { usePlayerStore } from '@/store/usePlayerStore';
@@ -41,6 +40,7 @@ export function PlayerShell() {
   const playEpoch = usePlayerStore((s) => s.playEpoch);
   const playerReady = usePlayerStore((s) => s.playerReady);
   const skipOnError = usePlayerStore((s) => s.skipOnError);
+  const setPlaybackError = usePlayerStore((s) => s.setPlaybackError);
   const pause = usePlayerStore((s) => s.pause);
   const playNext = usePlayerStore((s) => s.playNext);
   const setPosition = usePlayerStore((s) => s.setPosition);
@@ -86,6 +86,7 @@ export function PlayerShell() {
         : new URL(url, window.location.origin).href;
       if (audio.src !== resolved) {
         audio.src = url;
+        audio.load();
         setPlayerReady(false);
       }
     } else {
@@ -107,15 +108,6 @@ export function PlayerShell() {
     },
     [applyAudioSrc],
   );
-
-  const fallbackToEmbed = useCallback(() => {
-    if (isIos()) {
-      usePlayerStore.setState({ isPlaying: false });
-      return;
-    }
-    setPlaybackMode('embed');
-    setPlayerReady(false);
-  }, [setPlayerReady]);
 
   const confirmSeek = useCallback(() => {
     clearSeekVerifyTimer();
@@ -279,6 +271,7 @@ export function PlayerShell() {
   const handleLoadedMetadata = () => {
     setPlayerReady(true);
     errorCountRef.current = 0;
+    setPlaybackError(null);
     const duration = audioRef.current?.duration ?? 0;
     if (Number.isFinite(duration) && duration > 0) {
       setPlayerDuration(duration);
@@ -307,19 +300,17 @@ export function PlayerShell() {
   };
 
   const handleAudioError = () => {
-    const wantedPlay = usePlayerStore.getState().isPlaying;
     setPlayerReady(false);
-    usePlayerStore.setState({ isPlaying: false });
 
-    if (wantedPlay) {
+    if (usePlayerStore.getState().isPlaying) {
       pendingResumeRef.current = true;
     }
 
     errorCountRef.current += 1;
     if (errorCountRef.current >= MAX_RETRIES) {
       pendingResumeRef.current = false;
-      if (isIos()) return;
-      fallbackToEmbed();
+      setPlaybackError('לא ניתן לנגן');
+      skipOnError();
       return;
     }
 

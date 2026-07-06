@@ -9,7 +9,8 @@ import { withRetry } from '@/services/retry';
 export { isValidVideoId };
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const STREAM_CLIENTS = ['IOS', 'ANDROID', 'WEB'] as const;
+const STREAM_CLIENTS = ['IOS', 'ANDROID', 'WEB', 'MWEB'] as const;
+const PREFERRED_ITAGS = [140, 139, 141] as const;
 
 type CachedStream = {
   url: string;
@@ -37,10 +38,41 @@ function setCache(videoId: string, url: string, mimeType: string): void {
   });
 }
 
-function isMp4Audio(mimeType: string | undefined): boolean {
-  if (!mimeType) return false;
-  const base = mimeType.split(';')[0]?.trim().toLowerCase();
-  return base === 'audio/mp4' || base === 'audio/m4a';
+export function invalidateStreamCache(videoId: string): void {
+  streamCache.delete(videoId);
+}
+
+function isIosCompatibleFormat(format: { mime_type?: string; itag: number }): boolean {
+  const mime = (format.mime_type ?? '').toLowerCase();
+  if (mime.includes('mp4') || mime.includes('m4a')) return true;
+  return PREFERRED_ITAGS.includes(format.itag as (typeof PREFERRED_ITAGS)[number]);
+}
+
+function pickFormat(info: Awaited<ReturnType<Innertube['getBasicInfo']>>) {
+  for (const itag of PREFERRED_ITAGS) {
+    try {
+      const format = info.chooseFormat({ itag });
+      if (format && isIosCompatibleFormat(format)) return format;
+    } catch {
+      continue;
+    }
+  }
+
+  const strategies = [
+    { type: 'audio' as const, codec: 'mp4a', quality: 'best' },
+    { type: 'audio' as const, quality: 'best', format: 'mp4' },
+  ];
+
+  for (const options of strategies) {
+    try {
+      const format = info.chooseFormat(options);
+      if (format && isIosCompatibleFormat(format)) return format;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
 }
 
 async function resolveFromClient(
@@ -49,11 +81,8 @@ async function resolveFromClient(
   client: (typeof STREAM_CLIENTS)[number],
 ): Promise<{ url: string; mimeType: string } | null> {
   const info = await withRetry(() => yt.getBasicInfo(videoId, { client }));
-  const format =
-    info.chooseFormat({ type: 'audio', quality: 'best', format: 'mp4' }) ??
-    info.chooseFormat({ type: 'audio', quality: 'best' });
-
-  if (!format || !isMp4Audio(format.mime_type ?? undefined)) return null;
+  const format = pickFormat(info);
+  if (!format) return null;
 
   const url = await format.decipher(yt.session.player);
   if (!url?.startsWith('https://')) return null;

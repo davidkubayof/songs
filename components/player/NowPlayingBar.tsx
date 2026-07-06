@@ -12,6 +12,7 @@ import { usePlayerStore } from '@/store/usePlayerStore';
 export function NowPlayingBar() {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const playbackError = usePlayerStore((s) => s.playbackError);
   const togglePlay = useTogglePlay();
   const playNext = usePlayerStore((s) => s.playNext);
   const playPrevious = usePlayerStore((s) => s.playPrevious);
@@ -43,6 +44,9 @@ export function NowPlayingBar() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{currentTrack.title}</p>
               <p className="truncate text-xs text-zinc-400">{currentTrack.artist}</p>
+              {playbackError && (
+                <p className="truncate text-xs text-red-400">{playbackError}</p>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <div className="hidden items-center gap-1 sm:flex">
