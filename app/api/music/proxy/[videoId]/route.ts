@@ -9,25 +9,32 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const YOUTUBE_UPSTREAM_HEADERS: Record<string, string> = {
+const STREAM_HEADERS: Record<string, string> = {
   accept: '*/*',
   origin: 'https://www.youtube.com',
   referer: 'https://www.youtube.com',
   DNT: '?1',
-  'User-Agent':
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
 };
 
 function isUpstreamOk(status: number): boolean {
   return status === 200 || status === 206;
 }
 
-async function fetchUpstream(url: string, range: string | null): Promise<Response> {
-  const headers: Record<string, string> = { ...YOUTUBE_UPSTREAM_HEADERS };
-  if (range) {
-    headers.Range = range;
-  }
-  return fetch(url, { headers });
+function applyRangeToUrl(url: string, rangeHeader: string | null): string {
+  if (!rangeHeader) return url;
+  const match = rangeHeader.match(/bytes=(\d*)-(\d*)/i);
+  if (!match) return url;
+  const start = match[1] || '0';
+  const end = match[2];
+  const rangeValue = end ? `${start}-${end}` : `${start}-`;
+  const parsed = new URL(url);
+  parsed.searchParams.set('range', rangeValue);
+  return parsed.toString();
+}
+
+async function fetchUpstream(url: string, rangeHeader: string | null): Promise<Response> {
+  const fetchUrl = applyRangeToUrl(url, rangeHeader);
+  return fetch(fetchUrl, { headers: STREAM_HEADERS, redirect: 'follow' });
 }
 
 function buildStreamResponse(upstream: Response, mimeType: string): NextResponse {

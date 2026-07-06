@@ -9,7 +9,7 @@ import { withRetry } from '@/services/retry';
 export { isValidVideoId };
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const STREAM_CLIENTS = ['IOS', 'ANDROID', 'WEB', 'MWEB'] as const;
+const STREAM_CLIENTS = ['WEB', 'MWEB', 'ANDROID', 'IOS'] as const;
 const PREFERRED_ITAGS = [140, 139, 141] as const;
 
 type CachedStream = {
@@ -40,6 +40,12 @@ function setCache(videoId: string, url: string, mimeType: string): void {
 
 export function invalidateStreamCache(videoId: string): void {
   streamCache.delete(videoId);
+}
+
+function withCpn(baseUrl: string, cpn: string): string {
+  const url = new URL(baseUrl);
+  url.searchParams.set('cpn', cpn);
+  return url.toString();
 }
 
 function isIosCompatibleFormat(format: { mime_type?: string; itag: number }): boolean {
@@ -84,9 +90,10 @@ async function resolveFromClient(
   const format = pickFormat(info);
   if (!format) return null;
 
-  const url = await format.decipher(yt.session.player);
-  if (!url?.startsWith('https://')) return null;
+  const deciphered = await format.decipher(yt.session.player);
+  if (!deciphered?.startsWith('https://')) return null;
 
+  const url = withCpn(deciphered, info.cpn);
   return { url, mimeType: format.mime_type ?? 'audio/mp4' };
 }
 
