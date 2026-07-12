@@ -11,16 +11,16 @@ function resolveArtworkUrl(thumbnailUrl: string): string {
 export function setTrackMetadata(track: Track): void {
   if (!('mediaSession' in navigator)) return;
 
+  const artUrl = resolveArtworkUrl(track.thumbnailUrl);
   navigator.mediaSession.metadata = new MediaMetadata({
     title: track.title,
     artist: track.artist,
     album: track.album ?? 'Songs',
     artwork: [
-      {
-        src: resolveArtworkUrl(track.thumbnailUrl),
-        sizes: '512x512',
-        type: 'image/jpeg',
-      },
+      { src: artUrl, sizes: '96x96', type: 'image/jpeg' },
+      { src: artUrl, sizes: '128x128', type: 'image/jpeg' },
+      { src: artUrl, sizes: '256x256', type: 'image/jpeg' },
+      { src: artUrl, sizes: '512x512', type: 'image/jpeg' },
     ],
   });
 }

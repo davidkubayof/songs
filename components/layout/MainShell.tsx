@@ -1,5 +1,4 @@
 import { NowPlayingBar } from '@/components/player/NowPlayingBar';
-import { PlayerShell } from '@/components/player/PlayerShell';
 import { PageMotion } from '@/components/layout/PageMotion';
 import { RoomSyncProvider } from '@/components/providers/RoomSyncProvider';
 import { StoreHydrator } from '@/components/providers/StoreHydrator';
@@ -17,7 +16,6 @@ export function MainShell({ children }: MainShellProps) {
       <PageMotion>
         <div className="flex-1 shell-offset">{children}</div>
       </PageMotion>
-      <PlayerShell />
       <NowPlayingBar />
       <TabBar />
     </div>

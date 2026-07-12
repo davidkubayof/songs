@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { isValidVideoId, resolveAudioStreamUrl } from '@/services/YoutubeStreamService';
+import { isValidVideoId, resolveAudioStreamUrl } from '@/services/PipedStreamService';
 import { createTraceId, logPlayback } from '@/lib/logger/server';
 
 export const dynamic = 'force-dynamic';

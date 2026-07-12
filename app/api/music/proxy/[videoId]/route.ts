@@ -1,11 +1,10 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { Constants } from 'youtubei.js';
 
 import {
   invalidateStreamCache,
   isValidVideoId,
   resolveAudioStreamUrl,
-} from '@/services/YoutubeStreamService';
+} from '@/services/PipedStreamService';
 import { redactStreamUrl } from '@/lib/logger/redact';
 import { createTraceId, logPlayback, withTiming } from '@/lib/logger/server';
 
@@ -18,11 +17,14 @@ async function fetchUpstream(
   url: string,
   range: string | null,
 ): Promise<Response> {
-  const headers: HeadersInit = { ...Constants.STREAM_HEADERS };
+  const headers: HeadersInit = {
+    Accept: '*/*',
+    'User-Agent': 'Mozilla/5.0 (compatible; SongsPWA/1.0)',
+  };
   if (range) {
     headers['Range'] = range;
   }
-  return fetch(url, { headers });
+  return fetch(url, { headers, signal: AbortSignal.timeout(60_000) });
 }
 
 export async function GET(
@@ -56,6 +58,7 @@ export async function GET(
       hasRange: Boolean(range),
       clientTrace: clientTrace ?? null,
       userAgent,
+      source: 'piped',
     },
   });
 
@@ -68,7 +71,7 @@ export async function GET(
       const { result: resolved, durationMs: resolveMs } = await withTiming(() =>
         resolveAudioStreamUrl(videoId, traceId, { forceRefresh }),
       );
-      const { url, mimeType, cacheHit } = resolved;
+      const { url, mimeType, cacheHit, instance } = resolved;
 
       const streamMeta = redactStreamUrl(url);
       logPlayback({
@@ -81,6 +84,7 @@ export async function GET(
         meta: {
           cacheHit,
           attempt: attempt + 1,
+          instance,
           ...streamMeta,
         },
       });
@@ -103,6 +107,7 @@ export async function GET(
             cacheHit,
             resolveMs,
             attempt: attempt + 1,
+            instance,
           },
         });
 
@@ -141,12 +146,13 @@ export async function GET(
           cacheHit,
           resolveMs,
           attempt: attempt + 1,
+          instance,
         },
         err: upstream.statusText || 'upstream error',
       });
 
-      if (upstreamStatus === 403 && attempt === 0) {
-        invalidateStreamCache(videoId, 'upstream_403', traceId);
+      if ((upstreamStatus === 403 || upstreamStatus >= 500) && attempt === 0) {
+        invalidateStreamCache(videoId, `upstream_${upstreamStatus}`, traceId);
         forceRefresh = true;
         continue;
       }
